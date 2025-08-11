@@ -162,7 +162,6 @@ interface IMultiBTCVault {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-
     /**
      * @notice Get the strategy contract address
      * @return The address of the strategy managing collateral

@@ -99,10 +99,10 @@ contract ManagedRedemptionQueue is IManagedRedemptionQueue {
     /**
      * @inheritdoc IManagedRedemptionQueue
      */
-    function queueRedemption(address owner, uint256 shares, address receiver) 
-        external 
+    function queueRedemption(address owner, uint256 shares, address receiver)
+        external
         whenNotPaused
-        returns (uint256 requestId) 
+        returns (uint256 requestId)
     {
         // Only vault can queue redemptions
         if (msg.sender != address(vault)) revert Unauthorized(msg.sender);
@@ -143,7 +143,7 @@ contract ManagedRedemptionQueue is IManagedRedemptionQueue {
      */
     function cancelRedemption(uint256 requestId) external whenNotPaused {
         RedemptionRequest storage request = redemptionRequests[requestId];
-        
+
         // Validate request
         if (request.owner == address(0)) revert InvalidRequestId(requestId);
         if (request.owner != msg.sender) revert NotRequestOwner(msg.sender, requestId);
@@ -336,7 +336,7 @@ contract ManagedRedemptionQueue is IManagedRedemptionQueue {
         }
 
         RedemptionRequest storage request = redemptionRequests[requestId];
-        
+
         // Validate request
         if (request.owner == address(0)) revert InvalidRequestId(requestId);
         if (request.processed) revert RequestAlreadyProcessed(requestId);
@@ -371,7 +371,7 @@ contract ManagedRedemptionQueue is IManagedRedemptionQueue {
             revert Unauthorized(msg.sender);
         }
         if (to == address(0)) revert ZeroAddress();
-        
+
         token.safeTransfer(to, amount);
     }
 }

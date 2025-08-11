@@ -73,11 +73,7 @@ contract FullSystemTest is Test {
 
         // Deploy strategy
         vm.prank(admin);
-        strategy = new MultiCollateralStrategy(
-            address(roleManager),
-            address(registry),
-            address(sovaBTC)
-        );
+        strategy = new MultiCollateralStrategy(address(roleManager), address(registry), address(sovaBTC));
 
         // Deploy vault
         vm.prank(admin);
@@ -92,12 +88,7 @@ contract FullSystemTest is Test {
 
         // Deploy queue
         vm.prank(admin);
-        queue = new ManagedRedemptionQueue(
-            address(vault),
-            address(strategy),
-            address(roleManager),
-            address(sovaBTC)
-        );
+        queue = new ManagedRedemptionQueue(address(vault), address(strategy), address(roleManager), address(sovaBTC));
 
         // Deploy reporter
         vm.prank(admin);
@@ -105,37 +96,37 @@ contract FullSystemTest is Test {
 
         // Setup permissions
         vm.startPrank(admin);
-        
+
         // Set vault's strategy and queue
         vault.setStrategy(address(strategy));
         vault.setRedemptionQueue(address(queue));
         vault.setPriceOracle(address(reporter));
-        
+
         // Set strategy's vault
         strategy.setVault(address(vault));
-        
+
         // Register collateral tokens
         registry.addCollateral(address(wbtc), 1e18, 8); // 1:1 conversion
         registry.addCollateral(address(tbtc), 99e16, 8); // 0.99:1 conversion
         registry.addCollateral(address(sovaBTC), 1e18, 8); // 1:1 conversion
-        
+
         vm.stopPrank();
 
         // Fund users with tokens
         wbtc.mint(alice, 10e8);
         wbtc.mint(bob, 10e8);
         tbtc.mint(charlie, 10e8);
-        
+
         // Fund strategy with sovaBTC for redemptions
         sovaBTC.mint(address(strategy), 100e8);
 
         // Approve vault for all users
         vm.prank(alice);
         wbtc.approve(address(vault), type(uint256).max);
-        
+
         vm.prank(bob);
         wbtc.approve(address(vault), type(uint256).max);
-        
+
         vm.prank(charlie);
         tbtc.approve(address(vault), type(uint256).max);
     }
@@ -155,7 +146,7 @@ contract FullSystemTest is Test {
 
         // Check Alice's balance
         assertEq(vault.balanceOf(alice), aliceShares, "Alice should have shares");
-        
+
         // Alice queues redemption for half her shares
         uint256 sharesToRedeem = aliceShares / 2;
         vm.prank(alice);
@@ -169,7 +160,7 @@ contract FullSystemTest is Test {
         // Try to process before 14 days - should fail
         uint256[] memory requestIds = new uint256[](1);
         requestIds[0] = requestId;
-        
+
         vm.prank(admin);
         vm.expectRevert();
         queue.processRedemptions(requestIds);
@@ -179,14 +170,14 @@ contract FullSystemTest is Test {
 
         // Process redemption
         uint256 aliceBalanceBefore = sovaBTC.balanceOf(alice);
-        
+
         vm.prank(admin);
         queue.processRedemptions(requestIds);
 
         // Check Alice received sovaBTC
         uint256 aliceBalanceAfter = sovaBTC.balanceOf(alice);
         assertGt(aliceBalanceAfter, aliceBalanceBefore, "Alice should receive sovaBTC");
-        
+
         // Check queue no longer holds shares
         assertEq(vault.balanceOf(address(queue)), 0, "Queue should have no shares");
     }
@@ -198,20 +189,20 @@ contract FullSystemTest is Test {
         // All users deposit
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         vm.prank(bob);
         uint256 bobShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT * 2, bob);
-        
+
         vm.prank(charlie);
         uint256 charlieShares = vault.depositCollateral(address(tbtc), TBTC_AMOUNT, charlie);
 
         // All queue redemptions
         vm.prank(alice);
         uint256 requestId1 = vault.queueRedemption(aliceShares, alice);
-        
+
         vm.prank(bob);
         uint256 requestId2 = vault.queueRedemption(bobShares / 2, bob);
-        
+
         vm.prank(charlie);
         uint256 requestId3 = vault.queueRedemption(charlieShares, charlie);
 
@@ -227,7 +218,7 @@ contract FullSystemTest is Test {
         requestIds[0] = requestId1;
         requestIds[1] = requestId2;
         requestIds[2] = requestId3;
-        
+
         vm.prank(admin);
         queue.processRedemptions(requestIds);
 
@@ -235,7 +226,7 @@ contract FullSystemTest is Test {
         assertGt(sovaBTC.balanceOf(alice), 0, "Alice should receive sovaBTC");
         assertGt(sovaBTC.balanceOf(bob), 0, "Bob should receive sovaBTC");
         assertGt(sovaBTC.balanceOf(charlie), 0, "Charlie should receive sovaBTC");
-        
+
         // Bob should still have half his shares
         assertEq(vault.balanceOf(bob), bobShares / 2, "Bob should have remaining shares");
     }
@@ -247,19 +238,19 @@ contract FullSystemTest is Test {
         // Alice deposits
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         // Alice queues redemption
         vm.prank(alice);
         uint256 requestId = vault.queueRedemption(aliceShares, alice);
-        
+
         // Check shares moved to queue
         assertEq(vault.balanceOf(alice), 0, "Alice should have no shares");
         assertEq(vault.balanceOf(address(queue)), aliceShares, "Queue should hold shares");
-        
+
         // Alice cancels redemption
         vm.prank(alice);
         queue.cancelRedemption(requestId);
-        
+
         // Check shares returned to Alice
         assertEq(vault.balanceOf(alice), aliceShares, "Alice should get shares back");
         assertEq(vault.balanceOf(address(queue)), 0, "Queue should have no shares");
@@ -272,35 +263,35 @@ contract FullSystemTest is Test {
         // Alice deposits
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         // Queue redemption
         vm.prank(alice);
         uint256 requestId = vault.queueRedemption(aliceShares, alice);
-        
+
         // Update NAV (price increases by 10%)
         vm.prank(admin);
         reporter.setUpdater(admin, true);
-        
+
         vm.prank(admin);
         reporter.update(11e17, "manual"); // 1.1 price
-        
+
         // Warp to complete price transition
         vm.warp(block.timestamp + 1 hours);
-        
+
         // Warp remaining time for redemption
         vm.warp(block.timestamp + REDEMPTION_DELAY);
-        
+
         // Process redemption
         uint256[] memory requestIds = new uint256[](1);
         requestIds[0] = requestId;
-        
+
         uint256 balanceBefore = sovaBTC.balanceOf(alice);
-        
+
         vm.prank(admin);
         queue.processRedemptions(requestIds);
-        
+
         uint256 balanceAfter = sovaBTC.balanceOf(alice);
-        
+
         // Alice should receive sovaBTC based on the share value at redemption time
         assertGt(balanceAfter, balanceBefore, "Alice should receive sovaBTC");
     }
@@ -312,20 +303,20 @@ contract FullSystemTest is Test {
         // Alice deposits
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         // Admin pauses the queue
         vm.prank(admin);
         queue.pause();
-        
+
         // Alice tries to queue redemption - should fail
         vm.prank(alice);
         vm.expectRevert();
         vault.queueRedemption(aliceShares, alice);
-        
+
         // Admin unpauses
         vm.prank(admin);
         queue.unpause();
-        
+
         // Now Alice can queue
         vm.prank(alice);
         uint256 requestId = vault.queueRedemption(aliceShares, alice);
@@ -338,11 +329,11 @@ contract FullSystemTest is Test {
     function test_MinimumInvestmentEnforcement() public {
         // Try to deposit below minimum
         uint256 belowMinimum = MINIMUM_INVESTMENT - 1;
-        
+
         vm.prank(alice);
         vm.expectRevert();
         vault.depositCollateral(address(wbtc), belowMinimum, alice);
-        
+
         // Deposit exactly minimum
         vm.prank(alice);
         uint256 shares = vault.depositCollateral(address(wbtc), MINIMUM_INVESTMENT, alice);
@@ -356,16 +347,16 @@ contract FullSystemTest is Test {
         // Alice deposits and queues
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         vm.prank(alice);
         uint256 requestId = vault.queueRedemption(aliceShares, alice);
-        
+
         // Admin force processes without waiting
         uint256 balanceBefore = sovaBTC.balanceOf(alice);
-        
+
         vm.prank(admin);
         queue.forceProcessRedemption(requestId);
-        
+
         uint256 balanceAfter = sovaBTC.balanceOf(alice);
         assertGt(balanceAfter, balanceBefore, "Alice should receive sovaBTC");
     }
@@ -377,23 +368,23 @@ contract FullSystemTest is Test {
         // Multiple users deposit
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         vm.prank(bob);
         uint256 bobShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT * 2, bob);
-        
+
         // Initial state
         assertEq(vault.balanceOf(address(queue)), 0, "Queue starts with no shares");
-        
+
         // Alice queues
         vm.prank(alice);
         vault.queueRedemption(aliceShares / 2, alice);
         assertEq(vault.balanceOf(address(queue)), aliceShares / 2, "Queue holds Alice's shares");
-        
+
         // Bob queues
         vm.prank(bob);
         vault.queueRedemption(bobShares, bob);
         assertEq(vault.balanceOf(address(queue)), aliceShares / 2 + bobShares, "Queue holds both users' shares");
-        
+
         // Alice cancels
         vm.prank(alice);
         queue.cancelRedemption(1);
@@ -407,31 +398,31 @@ contract FullSystemTest is Test {
         // Alice deposits WBTC
         vm.prank(alice);
         uint256 aliceShares = vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         // Bob deposits TBTC (with 0.99 conversion rate)
         vm.prank(charlie);
         uint256 charlieShares = vault.depositCollateral(address(tbtc), TBTC_AMOUNT, charlie);
-        
+
         // Charlie should get slightly fewer shares due to conversion rate
         assertLt(charlieShares, aliceShares * 2, "Charlie gets fewer shares due to TBTC discount");
-        
+
         // Both can queue redemptions
         vm.prank(alice);
         uint256 requestId1 = vault.queueRedemption(aliceShares, alice);
-        
+
         vm.prank(charlie);
         uint256 requestId2 = vault.queueRedemption(charlieShares, charlie);
-        
+
         // Process after 14 days
         vm.warp(block.timestamp + REDEMPTION_DELAY);
-        
+
         uint256[] memory requestIds = new uint256[](2);
         requestIds[0] = requestId1;
         requestIds[1] = requestId2;
-        
+
         vm.prank(admin);
         queue.processRedemptions(requestIds);
-        
+
         // Both receive sovaBTC
         assertGt(sovaBTC.balanceOf(alice), 0, "Alice receives sovaBTC");
         assertGt(sovaBTC.balanceOf(charlie), 0, "Charlie receives sovaBTC");
@@ -444,23 +435,19 @@ contract FullSystemTest is Test {
     function skip_test_RedemptionQueueUpdate() public {
         // Deploy a new queue
         vm.prank(admin);
-        ManagedRedemptionQueue newQueue = new ManagedRedemptionQueue(
-            address(vault),
-            address(strategy),
-            address(roleManager),
-            address(sovaBTC)
-        );
-        
+        ManagedRedemptionQueue newQueue =
+            new ManagedRedemptionQueue(address(vault), address(strategy), address(roleManager), address(sovaBTC));
+
         // Update vault to use new queue
         vm.prank(admin);
         vault.setRedemptionQueue(address(newQueue));
-        
+
         assertEq(vault.redemptionQueue(), address(newQueue), "Queue should be updated");
-        
+
         // Alice can use new queue
         vm.prank(alice);
         vault.depositCollateral(address(wbtc), WBTC_AMOUNT, alice);
-        
+
         vm.prank(alice);
         uint256 requestId = vault.queueRedemption(vault.balanceOf(alice), alice);
         assertEq(requestId, 1, "Should work with new queue");

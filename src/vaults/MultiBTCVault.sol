@@ -38,25 +38,25 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     /// @notice Internal storage for token metadata
     string private _name;
     string private _symbol;
-    
+
     /// @notice The sovaBTC token address (redemption asset)
     address private immutable _asset;
-    
+
     /// @notice The multi-collateral registry
     address public immutable collateralRegistry;
-    
+
     /// @notice The strategy managing collateral
     address public strategy;
-    
+
     /// @notice The price oracle reporter
     address public priceOracle;
-    
+
     /// @notice The conduit for token transfers (if used)
     address public immutable conduit;
-    
+
     /// @notice Whether the vault is paused
     bool private _paused;
-    
+
     /// @notice The redemption queue contract
     address public redemptionQueue;
 
@@ -83,7 +83,7 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     ) RoleManaged(roleManager_) {
         if (sovaBTC_ == address(0)) revert InvalidAddress();
         if (registry_ == address(0)) revert InvalidAddress();
-        
+
         _name = name_;
         _symbol = symbol_;
         _asset = sovaBTC_;
@@ -122,16 +122,16 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
         if (!IMultiCollateralRegistry(collateralRegistry).isSupportedAsset(token)) {
             revert TokenNotSupported(token);
         }
-        
+
         // Check minimum investment amount (0.001 BTC)
         if (amount < MINIMUM_INVESTMENT) {
             revert InvalidAmount(amount);
         }
-        
+
         // Calculate shares based on collateral value
         shares = previewDepositCollateral(token, amount);
         if (shares == 0) revert ZeroShares();
-        
+
         // Transfer collateral from depositor
         if (conduit != address(0)) {
             // Use conduit for transfer
@@ -140,12 +140,12 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
             // Direct transfer
             token.safeTransferFrom(msg.sender, strategy, amount);
         }
-        
+
         // Mint shares to receiver
         _mint(receiver, shares);
-        
+
         emit CollateralDeposited(msg.sender, token, amount, shares, receiver);
-        
+
         return shares;
     }
 
@@ -162,56 +162,47 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
         if (shares == 0) revert ZeroShares();
         if (receiver == address(0)) revert InvalidAddress();
         if (redemptionQueue == address(0)) revert QueueNotSet();
-        
+
         // Check user has enough shares
         if (balanceOf(msg.sender) < shares) revert InvalidAmount(shares);
-        
+
         // Transfer shares from user to queue for custody
         _transfer(msg.sender, redemptionQueue, shares);
-        
+
         // Call queue to record the redemption request
         requestId = IManagedRedemptionQueue(redemptionQueue).queueRedemption(msg.sender, shares, receiver);
-        
+
         emit RedemptionQueued(msg.sender, receiver, shares, requestId);
     }
 
     /**
      * @inheritdoc IMultiBTCVault
      */
-    function burnSharesForRedemption(uint256 shares)
-        external
-        override
-        returns (uint256 assets)
-    {
+    function burnSharesForRedemption(uint256 shares) external override returns (uint256 assets) {
         // Only redemption queue can call this
         if (msg.sender != redemptionQueue) revert Unauthorized(msg.sender);
         if (shares == 0) revert ZeroShares();
-        
+
         // Calculate assets for the shares
         assets = previewRedeem(shares);
-        
+
         // Burn shares held by the queue
         _burn(redemptionQueue, shares);
-        
+
         return assets;
     }
 
     /**
      * @inheritdoc IMultiBTCVault
      */
-    function previewDepositCollateral(address token, uint256 amount)
-        public
-        view
-        override
-        returns (uint256 shares)
-    {
+    function previewDepositCollateral(address token, uint256 amount) public view override returns (uint256 shares) {
         if (!IMultiCollateralRegistry(collateralRegistry).isSupportedAsset(token)) {
             return 0;
         }
-        
+
         // Convert collateral amount to sovaBTC value
         uint256 sovaBTCValue = IMultiCollateralRegistry(collateralRegistry).getValueInUnderlying(token, amount);
-        
+
         // Use standard ERC4626 conversion
         return previewDeposit(sovaBTCValue);
     }
@@ -223,32 +214,24 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     /**
      * @inheritdoc IMultiBTCVault
      */
-    function setStrategy(address newStrategy)
-        external
-        override
-        onlyRoles(roleManager.PROTOCOL_ADMIN())
-    {
+    function setStrategy(address newStrategy) external override onlyRoles(roleManager.PROTOCOL_ADMIN()) {
         if (newStrategy == address(0)) revert InvalidAddress();
-        
+
         address oldStrategy = strategy;
         strategy = newStrategy;
-        
+
         emit StrategyUpdated(oldStrategy, newStrategy);
     }
 
     /**
      * @inheritdoc IMultiBTCVault
      */
-    function setPriceOracle(address newOracle)
-        external
-        override
-        onlyRoles(roleManager.PROTOCOL_ADMIN())
-    {
+    function setPriceOracle(address newOracle) external override onlyRoles(roleManager.PROTOCOL_ADMIN()) {
         if (newOracle == address(0)) revert InvalidAddress();
-        
+
         address oldOracle = priceOracle;
         priceOracle = newOracle;
-        
+
         emit PriceOracleUpdated(oldOracle, newOracle);
     }
 
@@ -273,19 +256,15 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     /**
      * @inheritdoc IMultiBTCVault
      */
-    function setRedemptionQueue(address newQueue)
-        external
-        override
-        onlyRoles(roleManager.PROTOCOL_ADMIN())
-    {
+    function setRedemptionQueue(address newQueue) external override onlyRoles(roleManager.PROTOCOL_ADMIN()) {
         if (newQueue == address(0)) revert InvalidAddress();
-        
+
         address oldQueue = redemptionQueue;
         redemptionQueue = newQueue;
-        
+
         emit RedemptionQueueUpdated(oldQueue, newQueue);
     }
-    
+
     /**
      * @inheritdoc IMultiBTCVault
      */
@@ -324,18 +303,18 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
      */
     function totalAssets() public view virtual override returns (uint256) {
         if (strategy == address(0)) return 0;
-        
+
         // If we have a price oracle, use reported NAV
         if (priceOracle != address(0)) {
             uint256 pricePerShare = abi.decode(IReporter(priceOracle).report(), (uint256));
             uint256 totalSupply = totalSupply();
-            
+
             // pricePerShare is in 18 decimals, totalSupply is in 18 decimals
             // Result needs to be in asset decimals (8 for sovaBTC)
             // (pricePerShare * totalSupply) / 10^(18 + 18 - 8) = result in 8 decimals
-            return pricePerShare.mulDiv(totalSupply, 10**28);
+            return pricePerShare.mulDiv(totalSupply, 10 ** 28);
         }
-        
+
         // Otherwise use strategy's reported total assets
         return IMultiCollateralStrategy(strategy).totalAssets();
     }
@@ -381,24 +360,24 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     {
         if (receiver == address(0)) revert InvalidAddress();
         if (assets == 0) revert InvalidAmount(assets);
-        
+
         shares = previewWithdraw(assets);
         if (shares == 0) revert ZeroShares();
-        
+
         // Check allowance if withdrawing for someone else
         if (msg.sender != owner) {
             _spendAllowance(owner, msg.sender, shares);
         }
-        
+
         // Burn shares
         _burn(owner, shares);
-        
+
         // Withdraw sovaBTC from strategy
         bool success = IMultiCollateralStrategy(strategy).withdrawTo(_asset, receiver, assets);
         if (!success) revert WithdrawFailed();
-        
+
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
-        
+
         return shares;
     }
 
@@ -415,24 +394,24 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     {
         if (receiver == address(0)) revert InvalidAddress();
         if (shares == 0) revert ZeroShares();
-        
+
         assets = previewRedeem(shares);
         if (assets == 0) revert ZeroAssets();
-        
+
         // Check allowance if redeeming for someone else
         if (msg.sender != owner) {
             _spendAllowance(owner, msg.sender, shares);
         }
-        
+
         // Burn shares
         _burn(owner, shares);
-        
+
         // Withdraw sovaBTC from strategy
         bool success = IMultiCollateralStrategy(strategy).withdrawTo(_asset, receiver, assets);
         if (!success) revert WithdrawFailed();
-        
+
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
-        
+
         return assets;
     }
 
@@ -446,7 +425,7 @@ contract MultiBTCVault is IMultiBTCVault, ERC4626, RoleManaged, ReentrancyGuard 
     function _spendAllowance(address owner, address spender, uint256 amount) internal override {
         uint256 allowed = allowance(owner, spender);
         if (allowed < amount) revert InsufficientAllowance();
-        
+
         if (allowed != type(uint256).max) {
             _approve(owner, spender, allowed - amount);
         }

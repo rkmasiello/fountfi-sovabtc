@@ -46,14 +46,10 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
      * @param _registry Address of the multi-collateral registry
      * @param _sovaBTC Address of the sovaBTC token
      */
-    constructor(
-        address _roleManager,
-        address _registry,
-        address _sovaBTC
-    ) RoleManaged(_roleManager) {
+    constructor(address _roleManager, address _registry, address _sovaBTC) RoleManaged(_roleManager) {
         if (_registry == address(0)) revert InvalidAddress();
         if (_sovaBTC == address(0)) revert InvalidAddress();
-        
+
         collateralRegistry = IMultiCollateralRegistry(_registry);
         sovaBTC = _sovaBTC;
     }
@@ -90,24 +86,24 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
     /**
      * @inheritdoc IMultiCollateralStrategy
      */
-    function withdrawTo(address asset, address to, uint256 amount) 
-        external 
+    function withdrawTo(address asset, address to, uint256 amount)
+        external
         override
         onlyVaultOrQueue
         nonReentrant
-        returns (bool success) 
+        returns (bool success)
     {
         if (to == address(0)) revert InvalidAddress();
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         // For now, only support sovaBTC withdrawals for redemptions
         if (asset != sovaBTC) revert TokenNotSupported(asset);
-        
+
         uint256 balance = IERC20(sovaBTC).balanceOf(address(this));
         if (balance < amount) revert InsufficientBalance(amount, balance);
-        
+
         sovaBTC.safeTransfer(to, amount);
-        
+
         emit WithdrawTo(asset, to, amount);
         return true;
     }
@@ -128,31 +124,26 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
         if (!collateralRegistry.isSupportedAsset(fromToken)) revert TokenNotSupported(fromToken);
         if (!collateralRegistry.isSupportedAsset(toToken)) revert TokenNotSupported(toToken);
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         uint256 fromBalance = IERC20(fromToken).balanceOf(address(this));
         if (fromBalance < amount) revert InsufficientBalance(amount, fromBalance);
-        
+
         // In production, this would integrate with a DEX or swap protocol
         // For now, this is a placeholder that emits the event
         // The admin would need to manually execute the swap externally
-        
+
         emit CollateralRebalanced(fromToken, toToken, amount);
     }
 
     /**
      * @inheritdoc IMultiCollateralStrategy
      */
-    function addLiquidity(uint256 amount)
-        external
-        override
-        onlyRoles(roleManager.PROTOCOL_ADMIN())
-        nonReentrant
-    {
+    function addLiquidity(uint256 amount) external override onlyRoles(roleManager.PROTOCOL_ADMIN()) nonReentrant {
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         // Transfer sovaBTC from admin to strategy for redemptions
         sovaBTC.safeTransferFrom(msg.sender, address(this), amount);
-        
+
         emit LiquidityAdded(amount);
     }
 
@@ -167,33 +158,29 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
     {
         if (to == address(0)) revert InvalidAddress();
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance < amount) revert InsufficientBalance(amount, balance);
-        
+
         token.safeTransfer(to, amount);
-        
+
         // Update held collaterals if balance is now zero
         if (IERC20(token).balanceOf(address(this)) == 0 && _isHeld[token]) {
             _removeFromHeldCollaterals(token);
         }
-        
+
         emit CollateralRemoved(token, amount, to);
     }
 
     /**
      * @inheritdoc IMultiCollateralStrategy
      */
-    function setVault(address _vault)
-        external
-        override
-        onlyRoles(roleManager.PROTOCOL_ADMIN())
-    {
+    function setVault(address _vault) external override onlyRoles(roleManager.PROTOCOL_ADMIN()) {
         if (_vault == address(0)) revert InvalidAddress();
-        
+
         address oldVault = vault;
         vault = _vault;
-        
+
         emit VaultSet(oldVault, _vault);
     }
 
@@ -208,17 +195,17 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
     {
         if (to == address(0)) revert InvalidAddress();
         if (amount == 0) revert InvalidAmount(amount);
-        
+
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance < amount) revert InsufficientBalance(amount, balance);
-        
+
         token.safeTransfer(to, amount);
-        
+
         // Update held collaterals if balance is now zero
         if (IERC20(token).balanceOf(address(this)) == 0 && _isHeld[token]) {
             _removeFromHeldCollaterals(token);
         }
-        
+
         emit EmergencyWithdrawal(token, amount, to);
     }
 
@@ -238,10 +225,10 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
      */
     function totalAssets() external view override returns (uint256) {
         uint256 total = 0;
-        
+
         // Add sovaBTC balance
         total += IERC20(sovaBTC).balanceOf(address(this));
-        
+
         // Add value of all supported collaterals (excluding sovaBTC to avoid double-counting)
         address[] memory supportedCollaterals = collateralRegistry.getSupportedCollaterals();
         for (uint256 i = 0; i < supportedCollaterals.length; i++) {
@@ -256,7 +243,7 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
                 total += collateralRegistry.getValueInUnderlying(token, balance);
             }
         }
-        
+
         return total;
     }
 
@@ -298,5 +285,4 @@ contract MultiCollateralStrategy is IMultiCollateralStrategy, RoleManaged, Reent
             }
         }
     }
-
 }
