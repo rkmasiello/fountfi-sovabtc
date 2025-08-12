@@ -25,11 +25,13 @@ contract DeploymentConfig {
 
     uint256 constant MAINNET_CHAIN_ID = 1;
     uint256 constant SEPOLIA_CHAIN_ID = 11155111;
+    uint256 constant BASE_SEPOLIA_CHAIN_ID = 84532;
     uint256 constant LOCAL_CHAIN_ID = 31337;
 
     constructor() {
         _setupMainnetConfig();
         _setupSepoliaConfig();
+        _setupBaseSepoliaConfig();
         _setupLocalConfig();
     }
 
@@ -75,6 +77,46 @@ contract DeploymentConfig {
             minInvestment: 1e5, // 0.001 BTC in 8 decimals
             initialNav: 1e18 // 1.0 in 18 decimals
         });
+    }
+
+    function _setupBaseSepoliaConfig() private {
+        networkConfigs[BASE_SEPOLIA_CHAIN_ID] = NetworkConfig({
+            wbtc: 0xe44b2870eFcd6Bb3C9305808012621f438e9636D,
+            tbtc: 0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802,
+            sovabtc: 0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9,
+            protocolAdmin: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38,
+            priceOracleUpdater: 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38,
+            redemptionPeriod: 1 days, // Shorter for testing
+            minInvestment: 1e5, // 0.001 BTC in 8 decimals
+            initialNav: 1e18 // 1.0 in 18 decimals
+        });
+
+        collateralConfigs[BASE_SEPOLIA_CHAIN_ID].push(
+            CollateralConfig({
+                token: 0xe44b2870eFcd6Bb3C9305808012621f438e9636D, // WBTC
+                conversionRate: 1e18, // 1.0
+                decimals: 8,
+                isActive: true
+            })
+        );
+
+        collateralConfigs[BASE_SEPOLIA_CHAIN_ID].push(
+            CollateralConfig({
+                token: 0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802, // TBTC
+                conversionRate: 99e16, // 0.99
+                decimals: 18,
+                isActive: true
+            })
+        );
+
+        collateralConfigs[BASE_SEPOLIA_CHAIN_ID].push(
+            CollateralConfig({
+                token: 0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9, // sovaBTC
+                conversionRate: 1e18, // 1.0
+                decimals: 8,
+                isActive: true
+            })
+        );
     }
 
     function _setupLocalConfig() private {

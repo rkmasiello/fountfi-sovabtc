@@ -2,18 +2,18 @@
 
 ## Executive Summary
 
-The FountFi Multi-Collateral BTC Vault has been successfully implemented and is **production-ready**. The system leverages existing FountFi components while simplifying the architecture to create a unified BTC vault that accepts multiple collateral types and redeems in sovaBTC only. All core functionality is complete, tested, and deployable.
+The FountFi Multi-Collateral BTC Vault has been successfully implemented and **deployed to Base Sepolia testnet**. The system leverages existing FountFi components while simplifying the architecture to create a unified BTC vault that accepts multiple collateral types and redeems in sovaBTC only. All core functionality is complete, tested, and live on testnet.
 
-## Current Status: ✅ READY FOR PRODUCTION
+## Current Status: ✅ DEPLOYED TO BASE SEPOLIA
 
 ### System Overview
 - **Architecture**: ERC-4626 compliant multi-collateral BTC vault
 - **Collateral Support**: WBTC, TBTC, sovaBTC (extensible to more)
-- **Redemption**: sovaBTC only with 14-day queue system
+- **Redemption**: sovaBTC only with configurable queue system
 - **NAV Management**: Manual price oracle updates for yield tracking
 - **Test Coverage**: 509 tests passing (100% success rate)
-- **Deployment**: Complete deployment infrastructure ready
-- **Target Network**: Base Sepolia (Chain ID: 84532)
+- **Deployment Status**: Live on Base Sepolia (Chain ID: 84532)
+- **Vault Token**: mcBTC (Multi-Collateral BTC)
 - **RPC Provider**: Alchemy
 
 ## Implementation Progress
@@ -62,6 +62,16 @@ The FountFi Multi-Collateral BTC Vault has been successfully implemented and is 
 - Performed gas optimization analysis (217k deposit, 337k redemption)
 - Created deployment verification script for post-deployment checks
 
+### ✅ Session 7: Base Sepolia Deployment & Testing (COMPLETED)
+- Successfully deployed all contracts to Base Sepolia testnet
+- Deployed mock BTC tokens (WBTC, TBTC, sovaBTC) with mint functions
+- Configured all contract connections and dependencies
+- Set up collateral registry with proper decimals and conversion rates
+- Created and tested user flow scripts - deposits working successfully
+- Documented all deployed addresses and verification links
+- Reduced redemption period to 1 day for faster testing
+- Identified need for sovaBTC liquidity in strategy for redemptions
+
 ## Technical Architecture
 
 ### Core Components
@@ -92,35 +102,41 @@ The FountFi Multi-Collateral BTC Vault has been successfully implemented and is 
    - Gradual price transitions
    - Protected against manipulation
 
-## Deployment System
+## Base Sepolia Deployment
 
-### Scripts Available
+### Live Contract Addresses
+- **RoleManager**: `0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72`
+- **Registry**: `0x15a9983784617aa8892b2677bbaEc23539482B65`
+- **Strategy**: `0x740907524EbD6A481a81cE76B5115A4cDDb80099`
+- **Vault (mcBTC)**: `0x73E27097221d4d9D5893a83350dC7A967b46fab7`
+- **Queue**: `0x22BC73098CE1Ba2CaE5431fb32051cB4fc0F9C52`
+- **PriceOracle**: `0xDB4479A2360E118CCbD99B88e82522813BDE48f5`
+
+### Mock Token Addresses
+- **WBTC**: `0xe44b2870eFcd6Bb3C9305808012621f438e9636D`
+- **TBTC**: `0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802`
+- **sovaBTC**: `0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9`
+
+### Deployment Scripts
 ```
 script/
-├── deploy/              # Component deployment
-│   ├── 01_DeployCore.s.sol
-│   ├── 02_DeployStrategy.s.sol
-│   ├── 03_DeployVault.s.sol
-│   ├── 04_DeployQueue.s.sol
-│   ├── 05_DeployReporter.s.sol
-│   └── 06_Configure.s.sol
-├── admin/              # Operational scripts
-│   ├── UpdatePriceOracle.s.sol
-│   ├── ProcessRedemptions.s.sol
-│   ├── EmergencyPause.s.sol
-│   └── ManageLiquidity.s.sol
-├── DeployAll.s.sol     # One-command deployment
-└── VerifyDeployment.s.sol  # Post-deployment verification
+├── DeployFreshBaseSepolia.s.sol  # Main deployment
+├── ConfigureBaseSepolia.s.sol    # Configuration
+├── test/
+│   └── TestUserFlow.s.sol        # User testing
+└── helpers/
+    └── DeployMockTokens.s.sol    # Mock tokens
 ```
 
 ### Documentation Available
 ```
 docs/
-├── USER_GUIDE.md           # End user documentation
-├── ADMIN_MANUAL.md          # Admin operations guide
-├── INTEGRATION_GUIDE.md     # Developer integration docs
-├── SECURITY.md              # Security documentation
-└── GAS_OPTIMIZATION_REPORT.md # Gas analysis and recommendations
+├── DEPLOYMENT_BASE_SEPOLIA.md  # Live testnet deployment info
+├── USER_GUIDE.md               # End user documentation
+├── ADMIN_MANUAL.md             # Admin operations guide
+├── INTEGRATION_GUIDE.md        # Developer integration docs
+├── SECURITY.md                 # Security documentation
+└── GAS_OPTIMIZATION_REPORT.md  # Gas analysis
 
 examples/
 ├── web3-integration.js      # JavaScript/Ethers.js integration
@@ -128,21 +144,17 @@ examples/
 └── schema.graphql          # Subgraph GraphQL schema
 ```
 
-### Deployment Command
-```bash
-forge script script/DeployAll.s.sol --rpc-url $RPC_URL --broadcast --verify
-```
+## Testing Status
 
-## Test Coverage
+### Automated Tests
+- **Total Tests**: 509 passing (100%)
+- **Coverage**: Unit, integration, fuzz tests
 
-### Current Status
-- **Total Tests**: 509
-- **Passing**: 509 (100%)
-- **Coverage Areas**:
-  - Unit tests for all contracts
-  - Integration tests for full system flows
-  - Fuzz tests for edge cases
-  - Gas optimization tests
+### Live Testnet Testing
+- ✅ **Deposits**: Working with WBTC and TBTC
+- ✅ **Share Issuance**: mcBTC tokens minted correctly
+- ⚠️ **Redemptions**: Require sovaBTC liquidity in strategy
+- ✅ **Mock Tokens**: Mint functions working
 
 ## Production Checklist
 
@@ -150,7 +162,7 @@ forge script script/DeployAll.s.sol --rpc-url $RPC_URL --broadcast --verify
 - [x] Core contract implementation
 - [x] Multi-collateral deposit functionality
 - [x] sovaBTC-only redemptions
-- [x] 14-day redemption queue
+- [x] Configurable redemption queue
 - [x] NAV management integration
 - [x] Minimum investment enforcement
 - [x] Emergency controls
@@ -165,51 +177,49 @@ forge script script/DeployAll.s.sol --rpc-url $RPC_URL --broadcast --verify
 - [x] Gas optimization analysis
 - [x] Web3 integration examples
 - [x] Subgraph indexing schema
+- [x] Base Sepolia testnet deployment
+- [x] Mock token deployment with faucets
+- [x] Contract configuration and connections
+- [x] Basic user flow testing
 
-### 🔄 Ready for Deployment
-- [x] Mainnet deployment scripts configured
-- [x] Testnet deployment scripts configured
-- [x] Contract verification setup
-- [x] Admin procedures documented
-- [x] Emergency response procedures
-- [x] Post-deployment verification script
-- [ ] Base Sepolia testnet deployment (pending)
-- [ ] Contract verification on Basescan (pending)
+### 🔄 In Progress
+- [ ] Contract verification on Basescan
+- [ ] Full redemption cycle testing (needs liquidity)
+- [ ] Multi-user stress testing
+- [ ] Frontend integration
 
-## Next Steps for Production
+## Next Steps
 
-### Pre-Deployment
+### Immediate Tasks
+1. **Complete Testnet Testing**
+   - Add sovaBTC liquidity to strategy
+   - Test full redemption cycle
+   - Verify contract on Basescan
+   - Test NAV updates
+
+2. **Integration Development**
+   - Update Web3 examples with live addresses
+   - Deploy and test subgraph
+   - Create basic frontend UI
+   - Test with multiple users
+
+3. **Performance Testing**
+   - Stress test with multiple deposits
+   - Test queue processing at scale
+   - Monitor gas costs
+   - Optimize where needed
+
+### Pre-Mainnet Requirements
 1. **Security Audit**
    - External audit of all contracts
    - Focus on decimal handling and redemption queue
    - Verify emergency controls
 
-2. **Testnet Deployment**
-   - Deploy to Base Sepolia (Chain ID: 84532)
-   - Run full integration tests
-   - Test admin operations
-   - RPC: Alchemy (https://base-sepolia.g.alchemy.com/v2/)
-
-3. **Liquidity Preparation**
-   - Prepare initial sovaBTC liquidity
-   - Plan for 14-day redemption cycles
-   - Set up monitoring
-
-### Post-Deployment
-1. **Monitoring Setup**
-   - Track deposits and redemptions
-   - Monitor NAV updates
-   - Alert on emergency conditions
-
-2. **Operational Procedures**
-   - Daily NAV updates
-   - Weekly redemption processing
-   - Liquidity management
-
-3. **User Documentation**
-   - Deposit guide
-   - Redemption process explanation
-   - FAQ for 14-day wait period
+2. **Production Preparation**
+   - Finalize mainnet deployment scripts
+   - Prepare initial liquidity
+   - Set up monitoring infrastructure
+   - Create operational runbooks
 
 ## Risk Assessment
 
@@ -231,12 +241,19 @@ forge script script/DeployAll.s.sol --rpc-url $RPC_URL --broadcast --verify
 
 ## Conclusion
 
-The Multi-Collateral BTC Vault is **production-ready** with all critical features implemented, tested, and documented. The system successfully:
+The Multi-Collateral BTC Vault is **successfully deployed to Base Sepolia testnet** with all critical features implemented, tested, and documented. The system successfully:
 
-1. **Accepts multiple BTC collateral types** with proper decimal handling
-2. **Manages redemptions** through a secure 14-day queue system
-3. **Tracks yield** via manual NAV updates
-4. **Provides emergency controls** for risk management
-5. **Includes complete deployment infrastructure** for easy launch
+1. ✅ **Accepts multiple BTC collateral types** with proper decimal handling
+2. ✅ **Issues mcBTC shares** for deposited collateral
+3. ✅ **Manages redemptions** through a configurable queue system
+4. ✅ **Tracks yield** via manual NAV updates
+5. ✅ **Provides emergency controls** for risk management
+6. ✅ **Deployed and live** on Base Sepolia testnet
 
-The codebase is clean, well-tested (100% pass rate), and ready for security audit and mainnet deployment.
+### Current Deployment
+- **Network**: Base Sepolia (Chain ID: 84532)
+- **Vault Address**: `0x73E27097221d4d9D5893a83350dC7A967b46fab7`
+- **Status**: Live and accepting deposits
+- **Next Step**: Add liquidity and complete full testing cycle
+
+The codebase is clean, well-tested (509 tests passing), deployed to testnet, and ready for the next phase of testing and integration.
