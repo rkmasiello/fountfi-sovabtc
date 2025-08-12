@@ -2,7 +2,15 @@
 
 ## Overview
 
-The BTC Vault system is a multi-collateral vault that accepts various BTC-pegged tokens (WBTC, tBTC, etc.) and mints shares representing the deposited value. The system follows the ManagedWithdrawRWAStrategy pattern with a clean 2-contract architecture.
+The BTC Vault system is a multi-collateral vault that accepts various BTC-pegged tokens (WBTC, tBTC, sovaBTC) and mints shares representing the deposited value. The system follows the ManagedWithdrawRWAStrategy pattern with a clean 2-contract architecture.
+
+## Current Deployment (Base Sepolia)
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| BtcVaultStrategy | `0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8` | Manages collateral and liquidity |
+| BtcVaultToken | `0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a` | ERC4626 vault shares |
+| PriceOracleReporter | `0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF` | Price oracle for NAV |
 
 ## Architecture
 
@@ -219,3 +227,21 @@ For technical questions or issues:
 - Review test files in `test/BtcVaultRefactorTest.t.sol`
 - Check deployment script in `script/deploy/DeployBtcVault.s.sol`
 - Consult the technical specification in `ASSESSMENT_REPORT_REFACTOR.md`
+
+## Deployed Addresses (Base Sepolia)
+
+### Core Contracts
+- **BtcVaultStrategy**: `0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8`
+- **BtcVaultToken**: `0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a`
+- **PriceOracleReporter**: `0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF`
+- **RoleManager**: `0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72`
+
+### Test Collateral Tokens
+- **WBTC (Mock)**: `0xe44b2870eFcd6Bb3C9305808012621f438e9636D`
+- **TBTC (Mock)**: `0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802`
+- **sovaBTC (Mock)**: `0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9`
+
+### Deployment Info
+- **Network**: Base Sepolia (Chain ID: 84532)
+- **Deployed By**: `0x1f53aA5d3b5743BD0D41884124bC07f4d7682Fc1`
+- **Deployment Date**: August 12, 2025
