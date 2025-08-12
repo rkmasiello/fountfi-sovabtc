@@ -10,6 +10,7 @@ interface GlassCardProps {
   variant?: 'dark' | 'light' | 'premium';
   animation?: 'floating' | 'pulse' | 'none';
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 export function GlassCard({ 
@@ -18,15 +19,42 @@ export function GlassCard({
   hover = true,
   variant = 'dark',
   animation = 'none',
-  onClick
+  onClick,
+  style = {}
 }: GlassCardProps) {
+  const getVariantStyles = () => {
+    switch (variant) {
+      case 'light':
+        return {
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+        };
+      case 'premium':
+        return {
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+        };
+      default: // dark
+        return {
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+        };
+    }
+  };
+
   const baseClasses = cn(
     'rounded-2xl p-6 transition-all duration-500',
     {
-      'glass-card': variant === 'dark',
-      'glass-card-light': variant === 'light',
-      'premium-card': variant === 'premium',
-      'glass-card-hover cursor-pointer': hover && onClick,
+      'cursor-pointer hover:transform hover:scale-[1.02] hover:-translate-y-2': hover && onClick,
       'floating-animation': animation === 'floating',
       'pulse-glow': animation === 'pulse'
     },
@@ -34,7 +62,14 @@ export function GlassCard({
   );
 
   return (
-    <div className={baseClasses} onClick={onClick}>
+    <div 
+      className={baseClasses} 
+      onClick={onClick}
+      style={{
+        ...getVariantStyles(),
+        ...style
+      }}
+    >
       {children}
     </div>
   );

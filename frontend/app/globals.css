@@ -72,12 +72,7 @@
   --chart-5: oklch(0.645 0.246 16.439);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Theme configuration for Tailwind v4 */
 
 /* Base Styles */
 * {
@@ -384,25 +379,64 @@ body::before {
 
 /* Form input enhancement */
 .form-input {
-  @apply glass-input rounded-lg px-4 py-3 w-full text-white placeholder-gray-400 transition-all duration-300;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.form-input::placeholder {
+  color: rgb(156, 163, 175);
 }
 
 .form-label {
-  @apply text-sm font-medium text-gray-300 mb-2 block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(209, 213, 219);
+  margin-bottom: 0.5rem;
+  display: block;
 }
 
 /* Button variants */
 .btn-primary {
-  @apply glass-button px-6 py-3 rounded-lg font-medium transition-all duration-300 shine-effect;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(168, 85, 247, 0.3));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(168, 85, 247, 0.5));
+  transform: scale(1.05);
 }
 
 .btn-secondary {
-  @apply glass-button px-6 py-3 rounded-lg font-medium transition-all duration-300;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* Utility classes */

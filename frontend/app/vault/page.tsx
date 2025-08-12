@@ -249,83 +249,70 @@ export default function VaultPage() {
     : 0;
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen">
       <Toaster 
-        position="top-right"
+        position="bottom-right"
         toastOptions={{
+          duration: 4000,
           style: {
             background: 'rgba(15, 23, 42, 0.9)',
             color: '#fff',
             border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
             backdropFilter: 'blur(10px)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
           },
         }}
       />
 
       {/* Main Content */}
-      <main className="relative z-10 container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto space-y-8">
-          
-          {/* Header */}
-          <div className="text-center fade-in">
-            <h1 className="text-5xl font-bold gradient-text mb-4">
-              Multi-Collateral BTC Vault
-            </h1>
-            <p className="text-xl text-gray-400">
-              Deposit BTC variants to earn sustainable yield
-            </p>
-          </div>
+      <main className="relative z-10 container mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto space-y-8">
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 fade-in">
-            <GlassCard variant="premium" animation="floating">
-              <GlassCardHeader
-                title="Total Value Locked"
-                icon={<Lock className="w-5 h-5" />}
-              />
-              <GlassCardContent>
-                <p className="text-3xl font-bold text-white">
-                  {totalAssets ? formatUnits(totalAssets, 18) : '0'} BTC
-                </p>
-                <p className="text-sm text-gray-400 mt-1">
-                  Across all collateral types
-                </p>
-              </GlassCardContent>
-            </GlassCard>
-
-            <GlassCard variant="premium" animation="floating" style={{ animationDelay: '0.2s' }}>
-              <GlassCardHeader
-                title="Share Price"
-                icon={<TrendingUp className="w-5 h-5" />}
-              />
-              <GlassCardContent>
-                <p className="text-3xl font-bold text-green-400">
-                  {sharePrice.toFixed(4)}
-                </p>
-                <p className="text-sm text-gray-400 mt-1">
-                  BTC per share
-                </p>
-              </GlassCardContent>
-            </GlassCard>
-
-            <GlassCard variant="premium" animation="floating" style={{ animationDelay: '0.4s' }}>
-              <GlassCardHeader
-                title="Your Position"
-                icon={<Wallet className="w-5 h-5" />}
-              />
-              <GlassCardContent>
-                <p className="text-3xl font-bold text-white">
-                  {userBTCValue.toFixed(6)} BTC
-                </p>
-                <p className="text-sm text-gray-400 mt-1">
-                  {userShares ? formatUnits(userShares, 18) : '0'} shares
-                </p>
-              </GlassCardContent>
-            </GlassCard>
+          {/* Vault Overview Card */}
+          <div className="relative overflow-hidden bg-white/10 backdrop-blur-xl border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] rounded-2xl border">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10"></div>
+            
+            <div className="relative p-8">
+              <h1 className="text-3xl font-bold text-white mb-2">Multi-Collateral Bitcoin Vault</h1>
+              <p className="text-white/60 mb-8">Deposit BTC variants to earn sustainable yield from DeFi strategies</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
+                  <p className="text-white/60 text-sm mb-1">Total Value Locked</p>
+                  <p className="text-2xl font-bold text-white">
+                    {totalAssets ? formatUnits(totalAssets, 18) : '0'} BTC
+                  </p>
+                  <p className="text-white/60 text-sm">Across all collateral types</p>
+                </div>
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
+                  <p className="text-white/60 text-sm mb-1">Share Price</p>
+                  <p className="text-2xl font-bold text-green-400">{sharePrice.toFixed(4)}</p>
+                  <p className="text-white/60 text-sm">BTC per share</p>
+                </div>
+                <div className="bg-white/5 backdrop-blur-md rounded-xl p-6 border border-white/10">
+                  <p className="text-white/60 text-sm mb-1">Your Position</p>
+                  <p className="text-2xl font-bold text-white">{userBTCValue.toFixed(6)} BTC</p>
+                  <p className="text-white/60 text-sm">{userShares ? formatUnits(userShares, 18) : '0'} vBTC</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Main Vault Interface */}
-          <GlassCard variant="dark" className="overflow-hidden">
+          <div className="relative overflow-hidden bg-white/10 backdrop-blur-xl border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] rounded-2xl border">
             {/* Tab Navigation */}
             <div className="flex border-b border-white/10">
               <button
@@ -350,7 +337,8 @@ export default function VaultPage() {
               </button>
             </div>
 
-            <GlassCardContent className="p-8">
+            {/* Form Content */}
+            <div className="p-8">
               {!isConnected ? (
                 <div className="text-center py-12">
                   <Wallet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -534,8 +522,8 @@ export default function VaultPage() {
                   )}
                 </div>
               )}
-            </GlassCardContent>
-          </GlassCard>
+            </div>
+          </div>
         </div>
       </main>
     </div>
