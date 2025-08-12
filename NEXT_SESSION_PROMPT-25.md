@@ -33,7 +33,6 @@ Create configurations for:
 - [ ] Optimism
 - [ ] Polygon (Matic)
 - [ ] Avalanche C-Chain
-- [ ] BNB Chain
 - [ ] Base (update existing)
 
 Each configuration should include:
@@ -69,7 +68,7 @@ Each configuration should include:
 - Detect network from RPC
 - Load appropriate configuration
 - Deploy contracts
-- Configure collaterals
+- Configure collaterals based on existing collateral addresses per chain
 - Set up oracles
 - Save deployment info to registry
 ```
@@ -155,7 +154,7 @@ forge script VerifyDeployment --network optimism
 
 ## Networks Priority
 1. **Phase 1** (Session 25): Ethereum, Arbitrum, Optimism, Base
-2. **Phase 2** (Future): Polygon, Avalanche, BNB Chain
+2. **Phase 2** (Future): Polygon, Avalanche
 3. **Phase 3** (Future): Additional L2s and emerging chains
 
 ## Risk Considerations
