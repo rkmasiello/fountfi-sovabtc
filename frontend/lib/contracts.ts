@@ -1,0 +1,35 @@
+export const CONTRACTS = {
+  vault: "0x73E27097221d4d9D5893a83350dC7A967b46fab7",
+  queue: "0x22BC73098CE1Ba2CaE5431fb32051cB4fc0F9C52",
+  registry: "0x15a9983784617aa8892b2677bbaEc23539482B65",
+  strategy: "0x740907524EbD6A481a81cE76B5115A4cDDb80099",
+  priceOracle: "0xDB4479A2360E118CCbD99B88e82522813BDE48f5",
+  roleManager: "0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72",
+  // Token addresses
+  wbtc: "0xe44b2870eFcd6Bb3C9305808012621f438e9636D",
+  tbtc: "0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802",
+  sovaBTC: "0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9"
+} as const;
+
+export const CHAIN_CONFIG = {
+  id: 84532,
+  name: "Base Sepolia",
+  network: "base-sepolia",
+  nativeCurrency: {
+    decimals: 18,
+    name: "Ethereum",
+    symbol: "ETH",
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://base-sepolia.g.alchemy.com/v2/e7qIcHOK60Sc4-hvyWA68"],
+    },
+    public: {
+      http: ["https://sepolia.base.org"],
+    },
+  },
+  blockExplorers: {
+    default: { name: "BaseScan", url: "https://sepolia.basescan.org" },
+  },
+  testnet: true,
+};
