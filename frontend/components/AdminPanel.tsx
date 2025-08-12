@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { formatUnits, parseUnits, encodeFunctionData } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 import { CONTRACTS } from '@/lib/contracts';
+import { BTC_VAULT_TOKEN_ABI, BTC_VAULT_STRATEGY_ABI, ERC20_ABI } from '@/lib/abis';
 
-// Admin Panel ABIs
+// Role Manager ABI for admin check
 const ROLE_MANAGER_ABI = [
   {
     inputs: [],
@@ -26,148 +27,26 @@ const ROLE_MANAGER_ABI = [
   }
 ] as const;
 
-const QUEUE_ABI = [
-  {
-    inputs: [{ internalType: 'uint256[]', name: 'requestIds', type: 'uint256[]' }],
-    name: 'processRedemptions',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: 'requestId', type: 'uint256' }],
-    name: 'forceProcessRedemption',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'pause',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'unpause',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'address', name: 'to', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' }
-    ],
-    name: 'rescueTokens',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'paused',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'totalRequests',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'totalPendingShares',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  }
-] as const;
-
-const PRICE_ORACLE_ABI = [
-  {
-    inputs: [
-      { internalType: 'uint256', name: 'newTargetPricePerShare', type: 'uint256' },
-      { internalType: 'string', name: 'source_', type: 'string' }
-    ],
-    name: 'update',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'currentPrice',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'targetPrice',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-  {
-    inputs: [],
-    name: 'lastUpdate',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  }
-] as const;
-
-const REGISTRY_ABI = [
-  {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'uint8', name: 'decimals', type: 'uint8' },
-      { internalType: 'uint256', name: 'conversionRate', type: 'uint256' }
-    ],
-    name: 'addCollateral',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [{ internalType: 'address', name: 'token', type: 'address' }],
-    name: 'removeCollateral',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'uint256', name: 'newRate', type: 'uint256' }
-    ],
-    name: 'updateConversionRate',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  }
-] as const;
-
 interface AdminPanelProps {
   className?: string;
 }
 
 export function AdminPanel({ className = '' }: AdminPanelProps) {
   const { address } = useAccount();
-  const [activeTab, setActiveTab] = useState<'redemptions' | 'price' | 'emergency' | 'collateral' | 'analytics'>('redemptions');
-  const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
-  const [newPrice, setNewPrice] = useState('');
-  const [priceSource, setPriceSource] = useState('Manual Update');
-  const [rescueToken, setRescueToken] = useState('');
-  const [rescueTo, setRescueTo] = useState('');
-  const [rescueAmount, setRescueAmount] = useState('');
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'collateral' | 'liquidity' | 'withdrawals' | 'analytics'>('collateral');
+  
+  // Collateral management state
+  const [newCollateralAddress, setNewCollateralAddress] = useState('');
+  const [newCollateralDecimals, setNewCollateralDecimals] = useState('8');
+  const [removeCollateralAddress, setRemoveCollateralAddress] = useState('');
+  
+  // Liquidity management state
+  const [liquidityAmount, setLiquidityAmount] = useState('');
+  const [isAddingLiquidity, setIsAddingLiquidity] = useState(true);
+  
+  // Withdrawal management state
+  const [withdrawalShares, setWithdrawalShares] = useState('');
+  const [withdrawalReceiver, setWithdrawalReceiver] = useState('');
 
   // Check if user is admin
   const { data: protocolAdminRole } = useReadContract({
@@ -183,438 +62,366 @@ export function AdminPanel({ className = '' }: AdminPanelProps) {
     args: address && protocolAdminRole ? [address, protocolAdminRole] : undefined,
   });
 
-  // Read system status
-  const { data: isPaused } = useReadContract({
-    address: CONTRACTS.queue as `0x${string}`,
-    abi: QUEUE_ABI,
-    functionName: 'paused',
+  // Read strategy data
+  const { data: availableLiquidity } = useReadContract({
+    address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+    abi: BTC_VAULT_STRATEGY_ABI,
+    functionName: 'availableLiquidity',
   });
 
-  const { data: totalRequests } = useReadContract({
-    address: CONTRACTS.queue as `0x${string}`,
-    abi: QUEUE_ABI,
-    functionName: 'totalRequests',
+  const { data: totalAssets } = useReadContract({
+    address: CONTRACTS.btcVaultToken as `0x${string}`,
+    abi: BTC_VAULT_TOKEN_ABI,
+    functionName: 'totalAssets',
   });
 
-  const { data: totalPendingShares } = useReadContract({
-    address: CONTRACTS.queue as `0x${string}`,
-    abi: QUEUE_ABI,
-    functionName: 'totalPendingShares',
-  });
-
-  const { data: currentPrice } = useReadContract({
-    address: CONTRACTS.priceOracle as `0x${string}`,
-    abi: PRICE_ORACLE_ABI,
-    functionName: 'currentPrice',
-  });
-
-  const { data: targetPrice } = useReadContract({
-    address: CONTRACTS.priceOracle as `0x${string}`,
-    abi: PRICE_ORACLE_ABI,
-    functionName: 'targetPrice',
-  });
-
-  const { data: lastPriceUpdate } = useReadContract({
-    address: CONTRACTS.priceOracle as `0x${string}`,
-    abi: PRICE_ORACLE_ABI,
-    functionName: 'lastUpdate',
+  const { data: totalSupply } = useReadContract({
+    address: CONTRACTS.btcVaultToken as `0x${string}`,
+    abi: BTC_VAULT_TOKEN_ABI,
+    functionName: 'totalSupply',
   });
 
   // Write functions
   const { writeContract, data: txHash } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // Process redemptions
-  const handleProcessRedemptions = async () => {
-    if (selectedRequests.length === 0) {
-      alert('Please select redemption requests to process');
-      return;
-    }
-
+  // Add collateral
+  const handleAddCollateral = async () => {
+    if (!newCollateralAddress) return;
+    
     try {
       await writeContract({
-        address: CONTRACTS.queue as `0x${string}`,
-        abi: QUEUE_ABI,
-        functionName: 'processRedemptions',
-        args: [selectedRequests.map(id => BigInt(id))],
+        address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+        abi: BTC_VAULT_STRATEGY_ABI,
+        functionName: 'addCollateral',
+        args: [newCollateralAddress as `0x${string}`, Number(newCollateralDecimals)],
       });
+      setNewCollateralAddress('');
     } catch (error) {
-      console.error('Error processing redemptions:', error);
+      console.error('Error adding collateral:', error);
     }
   };
 
-  // Force process single redemption
-  const handleForceProcess = async (requestId: string) => {
+  // Remove collateral
+  const handleRemoveCollateral = async () => {
+    if (!removeCollateralAddress) return;
+    
     try {
       await writeContract({
-        address: CONTRACTS.queue as `0x${string}`,
-        abi: QUEUE_ABI,
-        functionName: 'forceProcessRedemption',
-        args: [BigInt(requestId)],
+        address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+        abi: BTC_VAULT_STRATEGY_ABI,
+        functionName: 'removeCollateral',
+        args: [removeCollateralAddress as `0x${string}`],
       });
+      setRemoveCollateralAddress('');
     } catch (error) {
-      console.error('Error force processing redemption:', error);
+      console.error('Error removing collateral:', error);
     }
   };
 
-  // Update price oracle
-  const handleUpdatePrice = async () => {
-    if (!newPrice) {
-      alert('Please enter a new price');
-      return;
-    }
-
+  // Add liquidity
+  const handleAddLiquidity = async () => {
+    if (!liquidityAmount) return;
+    
+    const amount = parseUnits(liquidityAmount, 8);
+    
     try {
-      const priceInWei = parseUnits(newPrice, 18);
       await writeContract({
-        address: CONTRACTS.priceOracle as `0x${string}`,
-        abi: PRICE_ORACLE_ABI,
-        functionName: 'update',
-        args: [priceInWei, priceSource],
+        address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+        abi: BTC_VAULT_STRATEGY_ABI,
+        functionName: 'addLiquidity',
+        args: [amount],
       });
+      setLiquidityAmount('');
     } catch (error) {
-      console.error('Error updating price:', error);
+      console.error('Error adding liquidity:', error);
     }
   };
 
-  // Pause/Unpause
-  const handlePauseToggle = async () => {
+  // Remove liquidity
+  const handleRemoveLiquidity = async () => {
+    if (!liquidityAmount) return;
+    
+    const amount = parseUnits(liquidityAmount, 8);
+    
     try {
       await writeContract({
-        address: CONTRACTS.queue as `0x${string}`,
-        abi: QUEUE_ABI,
-        functionName: isPaused ? 'unpause' : 'pause',
+        address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+        abi: BTC_VAULT_STRATEGY_ABI,
+        functionName: 'removeLiquidity',
+        args: [amount],
       });
+      setLiquidityAmount('');
     } catch (error) {
-      console.error('Error toggling pause:', error);
+      console.error('Error removing liquidity:', error);
     }
   };
 
-  // Rescue tokens
-  const handleRescueTokens = async () => {
-    if (!rescueToken || !rescueTo || !rescueAmount) {
-      alert('Please fill all rescue fields');
-      return;
-    }
-
+  // Process withdrawal
+  const handleProcessWithdrawal = async () => {
+    if (!withdrawalShares || !withdrawalReceiver) return;
+    
+    const shares = parseUnits(withdrawalShares, 18);
+    
     try {
-      const amount = parseUnits(rescueAmount, 18); // Adjust decimals as needed
       await writeContract({
-        address: CONTRACTS.queue as `0x${string}`,
-        abi: QUEUE_ABI,
-        functionName: 'rescueTokens',
-        args: [rescueToken as `0x${string}`, rescueTo as `0x${string}`, amount],
+        address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+        abi: BTC_VAULT_STRATEGY_ABI,
+        functionName: 'processWithdrawal',
+        args: [shares, withdrawalReceiver as `0x${string}`],
       });
+      setWithdrawalShares('');
+      setWithdrawalReceiver('');
     } catch (error) {
-      console.error('Error rescuing tokens:', error);
+      console.error('Error processing withdrawal:', error);
     }
-  };
-
-  // Format timestamp
-  const formatTimestamp = (timestamp: bigint) => {
-    const date = new Date(Number(timestamp) * 1000);
-    return date.toLocaleString();
   };
 
   if (!isAdmin) {
     return (
-      <div className={`bg-red-50 border border-red-200 rounded-lg p-6 ${className}`}>
-        <h2 className="text-xl font-bold text-red-800 mb-2">Access Denied</h2>
-        <p className="text-red-600">You do not have admin privileges to access this panel.</p>
-        <p className="text-sm text-red-500 mt-2">Connected: {address || 'Not connected'}</p>
+      <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+        <h2 className="text-xl font-bold mb-4">Admin Panel</h2>
+        <p className="text-gray-600">You must be an admin to access this panel.</p>
       </div>
     );
   }
 
-  return (
-    <div className={`bg-white rounded-lg shadow-lg p-6 ${className}`}>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Admin Panel</h2>
-        <p className="text-sm text-gray-500 mt-1">System Status: {isPaused ? '⚠️ PAUSED' : '✅ ACTIVE'}</p>
-      </div>
+  const liquidity = availableLiquidity ? Number(formatUnits(availableLiquidity, 8)) : 0;
+  const tvl = totalAssets ? Number(formatUnits(totalAssets, 8)) : 0;
+  const shares = totalSupply ? Number(formatUnits(totalSupply, 18)) : 0;
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          {['redemptions', 'price', 'emergency', 'collateral', 'analytics'].map((tab) => (
+  return (
+    <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+      <h2 className="text-xl font-bold mb-4">Admin Panel</h2>
+      
+      <div className="mb-4">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab('collateral')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === tab
-                  ? 'border-blue-500 text-blue-600'
+                activeTab === 'collateral' 
+                  ? 'border-indigo-500 text-indigo-600' 
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              Collateral
             </button>
-          ))}
-        </nav>
+            <button
+              onClick={() => setActiveTab('liquidity')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'liquidity' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Liquidity
+            </button>
+            <button
+              onClick={() => setActiveTab('withdrawals')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'withdrawals' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Withdrawals
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'analytics' 
+                  ? 'border-indigo-500 text-indigo-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Analytics
+            </button>
+          </nav>
+        </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="space-y-6">
-        {/* Redemptions Tab */}
-        {activeTab === 'redemptions' && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Redemption Processing</h3>
+      <div className="mt-6">
+        {activeTab === 'collateral' && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Collateral Management</h3>
             
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Total Requests</p>
-                  <p className="text-xl font-bold">{totalRequests?.toString() || '0'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Pending Shares</p>
-                  <p className="text-xl font-bold">
-                    {totalPendingShares ? formatUnits(totalPendingShares, 18) : '0'} stSOVABTC
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Request IDs (comma-separated)
-              </label>
-              <input
-                type="text"
-                placeholder="1,2,3"
-                onChange={(e) => setSelectedRequests(e.target.value.split(',').filter(Boolean))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleProcessRedemptions}
-                disabled={isConfirming}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isConfirming ? 'Processing...' : 'Process Selected'}
-              </button>
-              
-              <button
-                onClick={() => {
-                  const id = prompt('Enter request ID to force process:');
-                  if (id) handleForceProcess(id);
-                }}
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
-              >
-                Force Process Single
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Price Oracle Tab */}
-        {activeTab === 'price' && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Price Oracle Management</h3>
-            
-            <div className="bg-gray-50 p-4 rounded-lg mb-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Current Price</p>
-                  <p className="text-xl font-bold">
-                    {currentPrice ? formatUnits(currentPrice, 18) : '0'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Target Price</p>
-                  <p className="text-xl font-bold">
-                    {targetPrice ? formatUnits(targetPrice, 18) : '0'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Last Update</p>
-                  <p className="text-sm">
-                    {lastPriceUpdate ? formatTimestamp(lastPriceUpdate) : 'Never'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New Target Price
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={newPrice}
-                  onChange={(e) => setNewPrice(e.target.value)}
-                  placeholder="1.0000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Source Description
-                </label>
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-3">Add New Collateral</h4>
+              <div className="space-y-2">
                 <input
                   type="text"
-                  value={priceSource}
-                  onChange={(e) => setPriceSource(e.target.value)}
-                  placeholder="Manual Update"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="Token address (0x...)"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={newCollateralAddress}
+                  onChange={(e) => setNewCollateralAddress(e.target.value)}
                 />
-              </div>
-
-              <button
-                onClick={handleUpdatePrice}
-                disabled={isConfirming}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isConfirming ? 'Updating...' : 'Update Price'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Emergency Controls Tab */}
-        {activeTab === 'emergency' && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Emergency Controls</h3>
-            
-            <div className="space-y-6">
-              {/* Pause/Unpause */}
-              <div className="border rounded-lg p-4">
-                <h4 className="font-medium mb-2">System Pause</h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  Current Status: {isPaused ? '⚠️ PAUSED' : '✅ ACTIVE'}
-                </p>
+                <input
+                  type="number"
+                  placeholder="Decimals (default: 8)"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={newCollateralDecimals}
+                  onChange={(e) => setNewCollateralDecimals(e.target.value)}
+                />
                 <button
-                  onClick={handlePauseToggle}
-                  disabled={isConfirming}
-                  className={`px-4 py-2 rounded-md text-white ${
-                    isPaused 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-red-600 hover:bg-red-700'
-                  } disabled:opacity-50`}
+                  onClick={handleAddCollateral}
+                  disabled={!newCollateralAddress || isConfirming}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400"
                 >
-                  {isConfirming ? 'Processing...' : isPaused ? 'Unpause System' : 'Pause System'}
+                  {isConfirming ? 'Adding...' : 'Add Collateral'}
                 </button>
               </div>
+            </div>
 
-              {/* Token Rescue */}
-              <div className="border rounded-lg p-4">
-                <h4 className="font-medium mb-2">Rescue Tokens</h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  Recover stuck tokens from the queue contract
-                </p>
-                
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={rescueToken}
-                    onChange={(e) => setRescueToken(e.target.value)}
-                    placeholder="Token Address"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                  <input
-                    type="text"
-                    value={rescueTo}
-                    onChange={(e) => setRescueTo(e.target.value)}
-                    placeholder="Recipient Address"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                  <input
-                    type="text"
-                    value={rescueAmount}
-                    onChange={(e) => setRescueAmount(e.target.value)}
-                    placeholder="Amount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  />
-                  <button
-                    onClick={handleRescueTokens}
-                    disabled={isConfirming}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50"
-                  >
-                    {isConfirming ? 'Rescuing...' : 'Rescue Tokens'}
-                  </button>
-                </div>
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-3">Remove Collateral</h4>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Token address to remove (0x...)"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={removeCollateralAddress}
+                  onChange={(e) => setRemoveCollateralAddress(e.target.value)}
+                />
+                <button
+                  onClick={handleRemoveCollateral}
+                  disabled={!removeCollateralAddress || isConfirming}
+                  className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:bg-gray-400"
+                >
+                  {isConfirming ? 'Removing...' : 'Remove Collateral'}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Collateral Management Tab */}
-        {activeTab === 'collateral' && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Collateral Management</h3>
-            <p className="text-gray-600">
-              Manage supported collateral tokens in the registry.
-            </p>
+        {activeTab === 'liquidity' && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Liquidity Management</h3>
             
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-600">Current Available Liquidity</p>
+              <p className="text-2xl font-bold">{liquidity.toFixed(4)} sovaBTC</p>
+            </div>
+
+            <div className="border rounded-lg p-4">
+              <div className="flex space-x-2 mb-3">
+                <button
+                  onClick={() => setIsAddingLiquidity(true)}
+                  className={`flex-1 py-2 px-4 rounded-md ${
+                    isAddingLiquidity 
+                      ? 'bg-indigo-600 text-white' 
+                      : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  Add Liquidity
+                </button>
+                <button
+                  onClick={() => setIsAddingLiquidity(false)}
+                  className={`flex-1 py-2 px-4 rounded-md ${
+                    !isAddingLiquidity 
+                      ? 'bg-indigo-600 text-white' 
+                      : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  Remove Liquidity
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Amount of sovaBTC"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={liquidityAmount}
+                  onChange={(e) => setLiquidityAmount(e.target.value)}
+                />
+                <button
+                  onClick={isAddingLiquidity ? handleAddLiquidity : handleRemoveLiquidity}
+                  disabled={!liquidityAmount || isConfirming}
+                  className={`w-full ${
+                    isAddingLiquidity ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                  } text-white py-2 px-4 rounded-md disabled:bg-gray-400`}
+                >
+                  {isConfirming ? 'Processing...' : isAddingLiquidity ? 'Add Liquidity' : 'Remove Liquidity'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'withdrawals' && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Withdrawal Processing</h3>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
-                Note: Collateral management functions require separate transactions.
-                Use the script commands or direct contract interaction for now.
+                Process user withdrawals by burning shares and sending sovaBTC to users.
               </p>
             </div>
+
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-3">Process Withdrawal</h4>
+              <div className="space-y-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Shares to redeem"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={withdrawalShares}
+                  onChange={(e) => setWithdrawalShares(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Receiver address (0x...)"
+                  className="w-full px-3 py-2 border rounded-md"
+                  value={withdrawalReceiver}
+                  onChange={(e) => setWithdrawalReceiver(e.target.value)}
+                />
+                <button
+                  onClick={handleProcessWithdrawal}
+                  disabled={!withdrawalShares || !withdrawalReceiver || isConfirming}
+                  className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-400"
+                >
+                  {isConfirming ? 'Processing...' : 'Process Withdrawal'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Analytics Tab */}
         {activeTab === 'analytics' && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">System Analytics</h3>
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">System Analytics</h3>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Total Requests</p>
-                <p className="text-2xl font-bold">{totalRequests?.toString() || '0'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600">Total Value Locked</p>
+                <p className="text-xl font-bold">{tvl.toFixed(4)} BTC</p>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Pending Shares</p>
-                <p className="text-2xl font-bold">
-                  {totalPendingShares ? Number(formatUnits(totalPendingShares, 18)).toFixed(2) : '0'}
-                </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600">Total Shares</p>
+                <p className="text-xl font-bold">{shares.toFixed(2)} btcVault</p>
               </div>
               
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">System Status</p>
-                <p className="text-2xl font-bold">{isPaused ? '⚠️' : '✅'}</p>
-              </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Price Freshness</p>
-                <p className="text-2xl font-bold">
-                  {lastPriceUpdate 
-                    ? `${Math.floor((Date.now() / 1000 - Number(lastPriceUpdate)) / 3600)}h ago`
-                    : 'N/A'}
-                </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600">Share Price</p>
+                <p className="text-xl font-bold">{shares > 0 ? (tvl / shares).toFixed(6) : '1.000000'} BTC</p>
               </div>
             </div>
-
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">System Health</h4>
-              <ul className="space-y-1 text-sm text-blue-800">
-                <li>✅ Contracts Connected</li>
-                <li>{isPaused ? '⚠️ System Paused' : '✅ System Active'}</li>
-                <li>
-                  {lastPriceUpdate && (Date.now() / 1000 - Number(lastPriceUpdate)) > 86400
-                    ? '⚠️ Price Update Needed (>24h)'
-                    : '✅ Price Fresh'}
-                </li>
-                <li>✅ Admin Access Verified</li>
-              </ul>
+            
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-medium mb-2">Liquidity Status</h4>
+              <div className="space-y-1">
+                <p className="text-sm">Available: {liquidity.toFixed(4)} sovaBTC</p>
+                <p className="text-sm">Utilization: {tvl > 0 ? ((1 - liquidity / tvl) * 100).toFixed(2) : '0.00'}%</p>
+              </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Transaction Status */}
-      {isSuccess && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-800">✅ Transaction successful!</p>
-        </div>
-      )}
     </div>
   );
 }

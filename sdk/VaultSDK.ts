@@ -43,10 +43,10 @@ export interface ContractAddresses {
   sovaBTC: string;
 }
 
-// Base Sepolia addresses - to be updated after deployment
+// Base Sepolia addresses - deployed on 2025-08-12
 export const BASE_SEPOLIA_ADDRESSES: ContractAddresses = {
-  vault: "0x0000000000000000000000000000000000000000", // BtcVaultToken address (to be deployed)
-  strategy: "0x0000000000000000000000000000000000000000", // BtcVaultStrategy address (to be deployed)
+  vault: "0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a", // BtcVaultToken address (deployed)
+  strategy: "0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8", // BtcVaultStrategy address (deployed)
   roleManager: "0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72",
   wbtc: "0xe44b2870eFcd6Bb3C9305808012621f438e9636D",
   tbtc: "0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802",

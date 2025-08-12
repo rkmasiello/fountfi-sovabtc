@@ -2,6 +2,8 @@
 
 ## Executive Summary
 
+This project extends the FountFi system to support a new strategy enabling a Multi-Collateral BTC Vault system by leveraging existing FountFi components, simplifying the architecture to create a unified BTC vault that accepts multiple collateral types and redeems in sovaBTC only. 
+
 ✅ **COMPLETED IN SESSIONS 18-20**: Successfully refactored the multi-collateral BTC vault to follow the ManagedWithdrawRWAStrategy pattern, achieving a clean 2-contract architecture that aligns with FountFi patterns. All deprecated contracts have been removed, frontend SDK and ABIs updated, and deployment infrastructure prepared.
 
 ## Implementation Status

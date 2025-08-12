@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACTS } from '@/lib/contracts';
-import { VAULT_ABI, ERC20_ABI } from '@/lib/abis';
+import { BTC_VAULT_TOKEN_ABI, BTC_VAULT_STRATEGY_ABI, ERC20_ABI } from '@/lib/abis';
 
 const COLLATERAL_TOKENS = [
   { symbol: 'WBTC', address: CONTRACTS.wbtc, decimals: 8 },
@@ -40,7 +40,21 @@ export function DepositForm() {
     address: selectedToken.address as `0x${string}`,
     abi: ERC20_ABI,
     functionName: 'allowance',
-    args: address ? [address, CONTRACTS.vault as `0x${string}`] : undefined,
+    args: address ? [address, CONTRACTS.btcVaultToken as `0x${string}`] : undefined,
+  });
+
+  const { data: previewShares } = useReadContract({
+    address: CONTRACTS.btcVaultToken as `0x${string}`,
+    abi: BTC_VAULT_TOKEN_ABI,
+    functionName: 'previewDepositCollateral',
+    args: amount && selectedToken ? [selectedToken.address as `0x${string}`, parseUnits(amount, selectedToken.decimals)] : undefined,
+  });
+
+  const { data: isCollateralSupported } = useReadContract({
+    address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+    abi: BTC_VAULT_STRATEGY_ABI,
+    functionName: 'isSupportedCollateral',
+    args: selectedToken ? [selectedToken.address as `0x${string}`] : undefined,
   });
 
   const handleMint = async () => {
@@ -65,7 +79,7 @@ export function DepositForm() {
       address: selectedToken.address as `0x${string}`,
       abi: ERC20_ABI,
       functionName: 'approve',
-      args: [CONTRACTS.vault as `0x${string}`, amountInWei],
+      args: [CONTRACTS.btcVaultToken as `0x${string}`, amountInWei],
     });
   };
 
@@ -75,9 +89,9 @@ export function DepositForm() {
     const amountInWei = parseUnits(amount, selectedToken.decimals);
     
     await deposit({
-      address: CONTRACTS.vault as `0x${string}`,
-      abi: VAULT_ABI,
-      functionName: 'deposit',
+      address: CONTRACTS.btcVaultToken as `0x${string}`,
+      abi: BTC_VAULT_TOKEN_ABI,
+      functionName: 'depositCollateral',
       args: [selectedToken.address as `0x${string}`, amountInWei, address],
     });
     
@@ -88,6 +102,7 @@ export function DepositForm() {
   const balance = tokenBalance ? Number(formatUnits(tokenBalance, selectedToken.decimals)) : 0;
   const approved = allowance ? Number(formatUnits(allowance, selectedToken.decimals)) : 0;
   const needsApproval = Number(amount) > approved;
+  const expectedShares = previewShares ? Number(formatUnits(previewShares, 18)) : 0;
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -130,6 +145,16 @@ export function DepositForm() {
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.001"
           />
+          {amount && expectedShares > 0 && (
+            <p className="text-sm text-gray-500 mt-1">
+              Expected shares: {expectedShares.toFixed(6)} btcVault
+            </p>
+          )}
+          {selectedToken && isCollateralSupported === false && (
+            <p className="text-sm text-red-500 mt-1">
+              This collateral is not currently supported
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -154,7 +179,7 @@ export function DepositForm() {
           
           <button
             onClick={handleDeposit}
-            disabled={!amount || needsApproval || isDepositPending || Number(amount) < 0.001}
+            disabled={!amount || needsApproval || isDepositPending || Number(amount) < 0.001 || isCollateralSupported === false}
             className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 transition-colors"
           >
             {isDepositPending ? 'Depositing...' : 'Deposit'}

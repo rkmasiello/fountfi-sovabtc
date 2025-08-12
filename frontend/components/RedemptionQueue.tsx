@@ -4,41 +4,41 @@ import { useState } from 'react';
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACTS } from '@/lib/contracts';
-import { VAULT_ABI, QUEUE_ABI } from '@/lib/abis';
+import { BTC_VAULT_TOKEN_ABI, BTC_VAULT_STRATEGY_ABI } from '@/lib/abis';
 
 export function RedemptionQueue() {
   const { address } = useAccount();
   const [redeemAmount, setRedeemAmount] = useState('');
 
   const { writeContract: requestRedemption, data: requestHash } = useWriteContract();
-  const { writeContract: claimRedemption, data: claimHash } = useWriteContract();
 
   const { isLoading: isRequestPending } = useWaitForTransactionReceipt({
     hash: requestHash,
   });
 
-  const { isLoading: isClaimPending } = useWaitForTransactionReceipt({
-    hash: claimHash,
-  });
-
   const { data: userBalance } = useReadContract({
-    address: CONTRACTS.vault as `0x${string}`,
-    abi: VAULT_ABI,
+    address: CONTRACTS.btcVaultToken as `0x${string}`,
+    abi: BTC_VAULT_TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
   });
 
-  const { data: userRequests } = useReadContract({
-    address: CONTRACTS.queue as `0x${string}`,
-    abi: QUEUE_ABI,
-    functionName: 'getUserRequests',
-    args: address ? [address] : undefined,
+  const { data: availableLiquidity } = useReadContract({
+    address: CONTRACTS.btcVaultStrategy as `0x${string}`,
+    abi: BTC_VAULT_STRATEGY_ABI,
+    functionName: 'availableLiquidity',
   });
 
-  const { data: totalPending } = useReadContract({
-    address: CONTRACTS.queue as `0x${string}`,
-    abi: QUEUE_ABI,
-    functionName: 'getTotalPendingShares',
+  const { data: totalAssets } = useReadContract({
+    address: CONTRACTS.btcVaultToken as `0x${string}`,
+    abi: BTC_VAULT_TOKEN_ABI,
+    functionName: 'totalAssets',
+  });
+
+  const { data: totalSupply } = useReadContract({
+    address: CONTRACTS.btcVaultToken as `0x${string}`,
+    abi: BTC_VAULT_TOKEN_ABI,
+    functionName: 'totalSupply',
   });
 
   const handleRequestRedemption = async () => {
@@ -47,46 +47,43 @@ export function RedemptionQueue() {
     const amountInWei = parseUnits(redeemAmount, 18);
     
     await requestRedemption({
-      address: CONTRACTS.vault as `0x${string}`,
-      abi: VAULT_ABI,
-      functionName: 'requestRedemption',
-      args: [amountInWei],
+      address: CONTRACTS.btcVaultToken as `0x${string}`,
+      abi: BTC_VAULT_TOKEN_ABI,
+      functionName: 'redeem',
+      args: [amountInWei, address, address],
     });
     
     setRedeemAmount('');
   };
 
-  const handleClaim = async (requestId: bigint) => {
-    if (!address) return;
-    
-    await claimRedemption({
-      address: CONTRACTS.queue as `0x${string}`,
-      abi: QUEUE_ABI,
-      functionName: 'claimRedemption',
-      args: [requestId],
-    });
-  };
-
   const balance = userBalance ? Number(formatUnits(userBalance, 18)) : 0;
-  const pendingShares = totalPending ? Number(formatUnits(totalPending, 18)) : 0;
+  const liquidity = availableLiquidity ? Number(formatUnits(availableLiquidity, 8)) : 0;
+  const tvl = totalAssets ? Number(formatUnits(totalAssets, 8)) : 0;
+  const shares = totalSupply ? Number(formatUnits(totalSupply, 18)) : 0;
+  const sharePrice = shares > 0 && totalAssets ? (tvl / shares) : 1;
+  const redeemableValue = Number(redeemAmount) * sharePrice;
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-bold mb-4">Redemption Queue</h2>
+      <h2 className="text-xl font-bold mb-4">Managed Withdrawals</h2>
       
       <div className="space-y-4">
         <div className="border-b pb-4">
-          <p className="text-sm text-gray-600 mb-2">
-            Queue Status: {pendingShares.toFixed(2)} stSOVABTC pending
-          </p>
-          <p className="text-sm text-gray-600">
-            Processing Time: 1 day (testnet) / 14 days (mainnet)
-          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Available Liquidity</p>
+              <p className="text-lg font-semibold">{liquidity.toFixed(4)} sovaBTC</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Processing Time</p>
+              <p className="text-lg font-semibold">Manager Approval</p>
+            </div>
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Request Redemption (stSOVABTC)
+            Request Withdrawal (btcVault shares)
           </label>
           <div className="flex space-x-2">
             <input
@@ -103,84 +100,29 @@ export function RedemptionQueue() {
               disabled={!redeemAmount || Number(redeemAmount) > balance || isRequestPending}
               className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:bg-gray-400 transition-colors"
             >
-              {isRequestPending ? 'Requesting...' : 'Request'}
+              {isRequestPending ? 'Requesting...' : 'Request Withdrawal'}
             </button>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Available: {balance.toFixed(4)} stSOVABTC
-          </p>
-        </div>
-
-        {userRequests && userRequests.length > 0 && (
-          <div>
-            <h3 className="font-semibold mb-2">Your Redemption Requests</h3>
-            <div className="space-y-2">
-              {userRequests.map((requestId, index) => (
-                <RedemptionRequestItem 
-                  key={index} 
-                  requestId={requestId} 
-                  onClaim={handleClaim}
-                  isClaimPending={isClaimPending}
-                />
-              ))}
-            </div>
+          <div className="mt-2 space-y-1">
+            <p className="text-sm text-gray-500">
+              Available: {balance.toFixed(4)} btcVault
+            </p>
+            {redeemAmount && (
+              <p className="text-sm text-gray-500">
+                Withdrawal Value: ~{redeemableValue.toFixed(6)} BTC
+              </p>
+            )}
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RedemptionRequestItem({ 
-  requestId, 
-  onClaim,
-  isClaimPending 
-}: { 
-  requestId: bigint;
-  onClaim: (id: bigint) => void;
-  isClaimPending: boolean;
-}) {
-  const { data: request } = useReadContract({
-    address: CONTRACTS.queue as `0x${string}`,
-    abi: QUEUE_ABI,
-    functionName: 'getRedemptionRequest',
-    args: [requestId],
-  });
-
-  if (!request) return null;
-
-  const shares = Number(formatUnits(request.shares, 18));
-  const requestDate = new Date(Number(request.requestedAt) * 1000);
-  const canClaim = request.processed && !request.claimed;
-
-  return (
-    <div className="border rounded p-3">
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="font-medium">Request #{requestId.toString()}</p>
-          <p className="text-sm text-gray-600">
-            {shares.toFixed(4)} stSOVABTC
-          </p>
-          <p className="text-xs text-gray-500">
-            {requestDate.toLocaleDateString()}
-          </p>
         </div>
-        <div>
-          {request.claimed && (
-            <span className="text-green-600 text-sm">Claimed</span>
-          )}
-          {request.processed && !request.claimed && (
-            <button
-              onClick={() => onClaim(requestId)}
-              disabled={isClaimPending}
-              className="bg-green-600 text-white py-1 px-3 rounded text-sm hover:bg-green-700 disabled:bg-gray-400"
-            >
-              {isClaimPending ? 'Claiming...' : 'Claim'}
-            </button>
-          )}
-          {!request.processed && (
-            <span className="text-yellow-600 text-sm">Processing</span>
-          )}
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <h3 className="font-semibold text-yellow-800 mb-2">Managed Withdrawal Process</h3>
+          <ul className="text-sm text-yellow-700 space-y-1">
+            <li>• Withdrawals require manager approval for processing</li>
+            <li>• You will receive sovaBTC upon approval</li>
+            <li>• Liquidity availability: {liquidity.toFixed(4)} sovaBTC</li>
+            <li>• Contact support if your withdrawal is pending</li>
+          </ul>
         </div>
       </div>
     </div>
