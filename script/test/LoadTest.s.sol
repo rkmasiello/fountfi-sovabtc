@@ -28,7 +28,7 @@ contract LoadTest is Script {
     address constant TBTC = 0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802;
     address constant SOVABTC = 0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9;
     
-    address constant ADMIN = 0xc96E00ea87C0C23e4de12fBb086ba45A76F87cEd;
+    address constant ADMIN = 0xc96E00Ea87C0C23E4De12FBb086bA45a76F87ced;
     
     // Test parameters - configurable for different load levels
     uint256 public NUM_USERS = 100; // Default to 100 users
@@ -159,7 +159,8 @@ contract LoadTest is Script {
             uint256 endIdx = startIdx + BATCH_SIZE;
             if (endIdx > NUM_USERS) endIdx = NUM_USERS;
             
-            console2.log("Processing batch", batch + 1, "of", batchCount, "(users", startIdx, "-", endIdx - 1, ")");
+            console2.log("Processing batch", batch + 1, "of", batchCount);
+            console2.log("  Users:", startIdx, "-", endIdx - 1);
             
             for (uint256 i = startIdx; i < endIdx; i++) {
                 TestUser storage user = testUsers[i];
@@ -292,18 +293,18 @@ contract LoadTest is Script {
         // Test 1: Minimum deposit amount
         vm.startBroadcast(testUsers[0].privateKey);
         try this.executeDeposit(testUsers[0].addr, WBTC, MIN_DEPOSIT) {
-            console2.log("  ✓ Minimum deposit successful");
+            console2.log("  [OK] Minimum deposit successful");
         } catch {
-            console2.log("  ✗ Minimum deposit failed");
+            console2.log("  [FAIL] Minimum deposit failed");
         }
         vm.stopBroadcast();
         
         // Test 2: Below minimum deposit (should fail)
         vm.startBroadcast(testUsers[1].privateKey);
         try this.executeDeposit(testUsers[1].addr, WBTC, MIN_DEPOSIT - 1) {
-            console2.log("  ✗ Below minimum deposit unexpectedly succeeded");
+            console2.log("  [FAIL] Below minimum deposit unexpectedly succeeded");
         } catch {
-            console2.log("  ✓ Below minimum deposit correctly rejected");
+            console2.log("  [OK] Below minimum deposit correctly rejected");
         }
         vm.stopBroadcast();
         
@@ -311,9 +312,9 @@ contract LoadTest is Script {
         if (testUsers[2].depositSuccess) {
             vm.startBroadcast(testUsers[2].privateKey);
             try this.executeRedemption(testUsers[2].addr, 0) {
-                console2.log("  ✗ Zero redemption unexpectedly succeeded");
+                console2.log("  [FAIL] Zero redemption unexpectedly succeeded");
             } catch {
-                console2.log("  ✓ Zero redemption correctly rejected");
+                console2.log("  [OK] Zero redemption correctly rejected");
             }
             vm.stopBroadcast();
         }
@@ -356,11 +357,11 @@ contract LoadTest is Script {
             uint256 gasStart = gasleft();
             try IManagedRedemptionQueue(QUEUE).processRedemptions(requestIds) {
                 uint256 gasUsed = gasStart - gasleft();
-                console2.log("  ✓ Admin processed", count, "redemptions");
+                console2.log("  [OK] Admin processed", count, "redemptions");
                 console2.log("  Gas used for batch processing:", gasUsed);
                 console2.log("  Gas per redemption:", gasUsed / count);
             } catch {
-                console2.log("  ✗ Admin redemption processing failed");
+                console2.log("  [FAIL] Admin redemption processing failed");
             }
             
             vm.stopBroadcast();
@@ -369,28 +370,28 @@ contract LoadTest is Script {
         // Test pause/unpause during load
         vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
         
-        try IManagedRedemptionQueue(QUEUE).pause() {
-            console2.log("  ✓ System paused successfully");
+        try IMultiBTCVault(VAULT).pause() {
+            console2.log("  [OK] System paused successfully");
             
             // Try operation while paused (should fail)
             vm.stopBroadcast();
             vm.startBroadcast(testUsers[0].privateKey);
             try this.executeDeposit(testUsers[0].addr, WBTC, MIN_DEPOSIT) {
-                console2.log("  ✗ Deposit succeeded while paused (unexpected)");
+                console2.log("  [FAIL] Deposit succeeded while paused (unexpected)");
             } catch {
-                console2.log("  ✓ Deposit correctly blocked while paused");
+                console2.log("  [OK] Deposit correctly blocked while paused");
             }
             vm.stopBroadcast();
             
             // Unpause
             vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
-            try IManagedRedemptionQueue(QUEUE).unpause() {
-                console2.log("  ✓ System unpaused successfully");
+            try IMultiBTCVault(VAULT).unpause() {
+                console2.log("  [OK] System unpaused successfully");
             } catch {
-                console2.log("  ✗ Failed to unpause system");
+                console2.log("  [FAIL] Failed to unpause system");
             }
         } catch {
-            console2.log("  ✗ Failed to pause system");
+            console2.log("  [FAIL] Failed to pause system");
         }
         
         vm.stopBroadcast();
@@ -401,23 +402,23 @@ contract LoadTest is Script {
         console2.log("LOAD TESTING REPORT");
         console2.log("========================================");
         
-        console2.log("\n📊 Test Configuration:");
+        console2.log("\n== Test Configuration ==");
         console2.log("  Total Users:", NUM_USERS);
         console2.log("  Batch Size:", BATCH_SIZE);
-        console2.log("  Deposit Range:", MIN_DEPOSIT / 1e8, "-", MAX_DEPOSIT / 1e8, "BTC");
+        console2.log("  Deposit Range: 0.001 - 0.1 BTC");
         
-        console2.log("\n📈 Performance Metrics:");
+        console2.log("\n== Performance Metrics ==");
         console2.log("  Total Operations:", metrics.totalDeposits + metrics.totalRedemptions);
         console2.log("  Duration:", metrics.endTime - metrics.startTime, "seconds");
         
-        console2.log("\n💰 Deposits:");
+        console2.log("\n== Deposits ==");
         console2.log("  Total Attempts:", metrics.totalDeposits);
         console2.log("  Successful:", metrics.successfulDeposits);
         console2.log("  Failed:", metrics.failedDeposits);
         console2.log("  Success Rate:", (metrics.successfulDeposits * 100) / metrics.totalDeposits, "%");
         console2.log("  Avg Gas:", metrics.avgGasPerDeposit);
         
-        console2.log("\n🔄 Redemptions:");
+        console2.log("\n== Redemptions ==");
         console2.log("  Total Attempts:", metrics.totalRedemptions);
         console2.log("  Successful:", metrics.successfulRedemptions);
         console2.log("  Failed:", metrics.failedRedemptions);
@@ -426,7 +427,7 @@ contract LoadTest is Script {
         }
         console2.log("  Avg Gas:", metrics.avgGasPerRedemption);
         
-        console2.log("\n⛽ Gas Analysis:");
+        console2.log("\n== Gas Analysis ==");
         console2.log("  Total Gas Used:", metrics.totalGasUsed);
         console2.log("  Max Gas (single tx):", metrics.maxGasUsed);
         console2.log("  Min Gas (single tx):", metrics.minGasUsed);
@@ -436,7 +437,7 @@ contract LoadTest is Script {
         uint256 totalCostWei = metrics.totalGasUsed * gasPrice;
         console2.log("  Est. Total Cost:", totalCostWei / 1e18, "ETH");
         
-        console2.log("\n✅ System Health:");
+        console2.log("\n== System Health ==");
         uint256 successRate = ((metrics.successfulDeposits + metrics.successfulRedemptions) * 100) / 
                              (metrics.totalDeposits + metrics.totalRedemptions);
         
@@ -450,18 +451,18 @@ contract LoadTest is Script {
             console2.log("  Status: NEEDS ATTENTION (", successRate, "% success rate)");
         }
         
-        console2.log("\n🎯 Recommendations:");
+        console2.log("\n== Recommendations ==");
         if (metrics.failedDeposits > metrics.totalDeposits / 10) {
-            console2.log("  ⚠️ High deposit failure rate - check collateral token approvals");
+            console2.log("  [WARNING] High deposit failure rate - check collateral token approvals");
         }
         if (metrics.failedRedemptions > metrics.totalRedemptions / 10) {
-            console2.log("  ⚠️ High redemption failure rate - check queue capacity");
+            console2.log("  [WARNING] High redemption failure rate - check queue capacity");
         }
         if (metrics.maxGasUsed > 500000) {
-            console2.log("  ⚠️ High gas usage detected - consider optimization");
+            console2.log("  [WARNING] High gas usage detected - consider optimization");
         }
         if (successRate >= 95) {
-            console2.log("  ✓ System performing well under load");
+            console2.log("  [OK] System performing well under load");
         }
         
         console2.log("\n========================================");
@@ -479,7 +480,7 @@ contract LoadTest is Script {
         
         // Execute deposit
         uint256 gasStart = gasleft();
-        shares = IMultiBTCVault(VAULT).deposit(token, amount, user);
+        shares = IMultiBTCVault(VAULT).depositCollateral(token, amount, user);
         gasUsed = gasStart - gasleft();
         
         return (shares, gasUsed);
@@ -487,7 +488,7 @@ contract LoadTest is Script {
     
     function executeRedemption(address user, uint256 shares) external returns (uint256 requestId, uint256 gasUsed) {
         uint256 gasStart = gasleft();
-        requestId = IMultiBTCVault(VAULT).requestRedemption(shares);
+        requestId = IMultiBTCVault(VAULT).queueRedemption(shares, user);
         gasUsed = gasStart - gasleft();
         
         return (requestId, gasUsed);

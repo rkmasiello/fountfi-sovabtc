@@ -5,15 +5,34 @@ import { VaultStats } from '@/components/VaultStats';
 import { DepositForm } from '@/components/DepositForm';
 import { RedemptionQueue } from '@/components/RedemptionQueue';
 import { AdminPanel } from '@/components/AdminPanel';
+import OnboardingWizard from '@/components/OnboardingWizard';
 import { useAccount } from 'wagmi';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (isConnected && address) {
+      const hasCompleted = localStorage.getItem(`onboarding_completed_${address}`);
+      if (!hasCompleted) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [isConnected, address]);
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Onboarding Wizard */}
+      {showOnboarding && (
+        <OnboardingWizard 
+          onComplete={() => setShowOnboarding(false)}
+          onSkip={() => setShowOnboarding(false)}
+        />
+      )}
+      
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
