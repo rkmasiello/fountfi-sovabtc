@@ -114,23 +114,100 @@ class AutomatedTestRunner {
 }
 ```
 
-#### 5. Deploy Subgraph
+#### 5. Deploy Ponder Indexer with Neon Database
 
-Deploy the indexing infrastructure to The Graph:
+Set up blockchain indexing using Ponder and Neon PostgreSQL:
 
 ```bash
-# Install Graph CLI
-npm install -g @graphprotocol/graph-cli
+# Create new Ponder project
+cd examples
+npm create ponder@latest vault-indexer
 
-# Initialize subgraph
-graph init --product hosted-service \
-  --from-contract 0x73E27097221d4d9D5893a83350dC7A967b46fab7 \
-  --network base-sepolia \
-  multibtc-vault
-
-# Deploy
-graph deploy --product hosted-service username/multibtc-vault
+# Configure environment
+cd vault-indexer
+echo "DATABASE_URL=postgresql://neondb_owner:npg_nV3muZf7eUwd@ep-curly-lab-a5wkugy4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require" >> .env
 ```
+
+Configure Ponder:
+
+```typescript
+// ponder.config.ts
+import { createConfig } from "@ponder/core";
+import { http } from "viem";
+import { VAULT_ABI, QUEUE_ABI } from "../abis";
+
+export default createConfig({
+  networks: {
+    baseSepolia: {
+      chainId: 84532,
+      transport: http("https://base-sepolia.g.alchemy.com/v2/e7qIcHOK60Sc4-hvyWA68"),
+    },
+  },
+  contracts: {
+    MultiBTCVault: {
+      network: "baseSepolia",
+      abi: VAULT_ABI,
+      address: "0x73E27097221d4d9D5893a83350dC7A967b46fab7",
+      startBlock: 0,
+    },
+    RedemptionQueue: {
+      network: "baseSepolia",
+      abi: QUEUE_ABI,
+      address: "0x22BC73098CE1Ba2CaE5431fb32051cB4fc0F9C52",
+      startBlock: 0,
+    },
+  },
+  database: {
+    kind: "postgres",
+    connectionString: process.env.DATABASE_URL,
+  },
+});
+```
+
+Define schema:
+
+```typescript
+// ponder.schema.ts
+import { onchainTable } from "@ponder/core";
+
+export const deposits = onchainTable("deposits", (t) => ({
+  id: t.text().primaryKey(),
+  user: t.hex().notNull(),
+  asset: t.hex().notNull(),
+  amount: t.bigint().notNull(),
+  shares: t.bigint().notNull(),
+  timestamp: t.bigint().notNull(),
+  txHash: t.hex().notNull(),
+}));
+
+export const redemptions = onchainTable("redemptions", (t) => ({
+  id: t.text().primaryKey(),
+  requestId: t.bigint().notNull(),
+  user: t.hex().notNull(),
+  shares: t.bigint().notNull(),
+  requestedAt: t.bigint().notNull(),
+  processed: t.boolean().notNull(),
+  claimed: t.boolean().notNull(),
+  redeemableAmount: t.bigint(),
+  txHash: t.hex().notNull(),
+}));
+
+export const vaultMetrics = onchainTable("vault_metrics", (t) => ({
+  id: t.text().primaryKey(),
+  totalAssets: t.bigint().notNull(),
+  totalSupply: t.bigint().notNull(),
+  sharePrice: t.bigint().notNull(),
+  timestamp: t.bigint().notNull(),
+  blockNumber: t.bigint().notNull(),
+}));
+```
+
+Benefits of Ponder over The Graph:
+- Direct PostgreSQL access with Neon's serverless infrastructure
+- ~10x faster indexing than Graph Node
+- TypeScript-native with type safety
+- Hot-reloading during development
+- Multiple query interfaces (GraphQL, SQL, direct Postgres)
 
 #### 6. Security Audit Preparation
 
@@ -197,10 +274,11 @@ Final documentation tasks:
    - [ ] Optimization recommendations
 
 4. **Production Infrastructure**
-   - [ ] Subgraph deployed and indexing
+   - [ ] Ponder indexer deployed with Neon database
+   - [ ] Real-time event processing configured
    - [ ] Automated tests running
    - [ ] Monitoring alerts configured
-   - [ ] Backup procedures documented
+   - [ ] Database backup procedures documented
 
 ### 🔧 Useful Commands:
 
@@ -213,8 +291,10 @@ vercel --prod
 # Run load tests
 forge script script/test/TestMultiUser.s.sol --rpc-url $RPC_URL --broadcast -vvv
 
-# Deploy subgraph
-graph deploy --product hosted-service username/multibtc-vault
+# Start Ponder indexer
+cd examples/vault-indexer
+npm run dev  # Development with hot-reload
+npm run start  # Production mode
 
 # Contract verification (if needed)
 forge verify-contract 0x73E27097221d4d9D5893a83350dC7A967b46fab7 MultiBTCVault \
@@ -248,7 +328,8 @@ forge verify-contract 0x73E27097221d4d9D5893a83350dC7A967b46fab7 MultiBTCVault \
 - [ ] All admin operations functional via UI
 - [ ] Zero critical issues in load testing
 - [ ] Documentation complete for mainnet launch
-- [ ] Subgraph indexing all events correctly
+- [ ] Ponder indexer processing all events correctly
+- [ ] Neon database queries optimized
 
 ### After Session 10:
 The vault will be ready for:

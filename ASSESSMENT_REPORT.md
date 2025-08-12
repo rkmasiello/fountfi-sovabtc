@@ -163,8 +163,10 @@ sdk/
 examples/
 ├── web3-integration.js             # JavaScript integration examples
 ├── web3-integration-live.js       # Live Base Sepolia examples
-├── subgraph.yaml                  # Graph Protocol configuration
-└── schema.graphql                 # Subgraph GraphQL schema
+└── ponder/                         # Ponder indexer (planned)
+    ├── ponder.config.ts           # Chain and contract config
+    ├── ponder.schema.ts           # Database schema
+    └── src/                       # Indexing functions
 
 script/
 ├── test/
@@ -233,7 +235,7 @@ docs/                              # Complete documentation suite
 - [ ] Contract verification on Basescan
 - [ ] Admin panel UI component
 - [ ] Automated testing suite for continuous monitoring
-- [ ] Subgraph deployment to The Graph
+- [ ] Ponder indexer deployment with Neon database
 - [ ] Frontend deployment to Vercel/Netlify
 - [ ] Load testing with 100+ concurrent users
 - [ ] Security audit preparation
