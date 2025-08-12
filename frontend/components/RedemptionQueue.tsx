@@ -77,7 +77,7 @@ export function RedemptionQueue() {
       <div className="space-y-4">
         <div className="border-b pb-4">
           <p className="text-sm text-gray-600 mb-2">
-            Queue Status: {pendingShares.toFixed(2)} mcBTC pending
+            Queue Status: {pendingShares.toFixed(2)} stSOVABTC pending
           </p>
           <p className="text-sm text-gray-600">
             Processing Time: 1 day (testnet) / 14 days (mainnet)
@@ -86,7 +86,7 @@ export function RedemptionQueue() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Request Redemption (mcBTC)
+            Request Redemption (stSOVABTC)
           </label>
           <div className="flex space-x-2">
             <input
@@ -107,7 +107,7 @@ export function RedemptionQueue() {
             </button>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Available: {balance.toFixed(4)} mcBTC
+            Available: {balance.toFixed(4)} stSOVABTC
           </p>
         </div>
 
@@ -159,7 +159,7 @@ function RedemptionRequestItem({
         <div>
           <p className="font-medium">Request #{requestId.toString()}</p>
           <p className="text-sm text-gray-600">
-            {shares.toFixed(4)} mcBTC
+            {shares.toFixed(4)} stSOVABTC
           </p>
           <p className="text-xs text-gray-500">
             {requestDate.toLocaleDateString()}

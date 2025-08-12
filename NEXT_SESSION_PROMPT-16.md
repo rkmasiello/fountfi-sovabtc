@@ -1,299 +1,239 @@
-# Next Session Prompt for Multi-Collateral BTC Vault
+# Session 17: Refactor BTC Vault Contracts for Coverage Compatibility
 
-## Session 14: Production Deployment & Audit Submission
+## Context
+The Multi-Collateral BTC Vault is fully functional with all 509 tests passing. However, `forge coverage` cannot run due to stack depth limitations when coverage instrumentation is added to our BTC vault contracts. We need to refactor these contracts to reduce local variable usage and improve code quality.
 
-You are continuing work on the FountFi Multi-Collateral BTC Vault system. Review ASSESSMENT_REPORT.md for the complete development history.
+## Current Branch
+Working on branch: `sovabtc-2`
 
-### ✅ Current Status:
-- All smart contracts deployed and operational on Base Sepolia
-- Complete frontend with admin panel and onboarding wizard
-- Security audit documentation package prepared
-- CI/CD pipeline configured with GitHub Actions
-- Contract verification scripts ready
-- Ponder indexer dockerized and ready for Railway
-- All infrastructure ready for production deployment
+## Problem Analysis
+The following BTC vault contracts cause stack depth issues during coverage:
+1. **MultiBTCVault.sol** - 21 functions with complex state management
+2. **ManagedRedemptionQueue.sol** - 12 functions with queue operations  
+3. **MultiCollateralStrategy.sol** - Multiple collateral handling
+4. **MultiCollateralRegistry.sol** - Conversion calculations
 
-### 🎯 Session 14 Goals: Execute Production Deployments & Begin Audit Process
+**Note**: Original FountFi contracts (tRWA, GatedMintRWA, RulesEngine, etc.) do NOT need refactoring.
 
-**PRIMARY OBJECTIVE: Deploy all production infrastructure, verify contracts, and submit for security audit**
+## Refactoring Strategy
 
-### 🔗 Live Infrastructure:
-- **Vault**: `0x73E27097221d4d9D5893a83350dC7A967b46fab7` (Base Sepolia)
-- **Frontend**: `/frontend` directory (ready for Vercel)
-- **Indexer**: `/examples/ponder-indexer` (ready for Railway)
-- **Audit Docs**: `/audit-prep` directory (complete)
-- **CI/CD**: `.github/workflows` (configured)
+### Phase 1: Analyze Stack Usage
+- Identify functions with most local variables
+- Find deeply nested operations
+- Locate complex calculations that can be extracted
 
-### 📋 Task List:
+### Phase 2: Refactor MultiBTCVault.sol
+Focus on the most complex functions:
 
-#### 1. Execute Contract Verification on Basescan
-**Priority: CRITICAL** - Required for transparency
+#### 2.1 `depositCollateral()` function
+**Current Issues**:
+- Multiple local variables for validation
+- Complex calculation flow
+- Multiple external calls
 
-Execute the verification script:
+**Refactoring Approach**:
+```solidity
+// Create a struct for deposit parameters
+struct DepositParams {
+    address token;
+    uint256 amount;
+    address receiver;
+    uint256 shares;
+}
+
+// Extract validation into a separate function
+function _validateDeposit(DepositParams memory params) private view
+
+// Extract transfer logic
+function _executeDepositTransfer(DepositParams memory params) private
+```
+
+#### 2.2 `totalAssets()` function
+**Current Issues**:
+- Complex NAV calculation with multiple variables
+- Conditional logic with price oracle
+
+**Refactoring Approach**:
+```solidity
+// Extract price calculation
+function _calculateNAVPrice() private view returns (uint256)
+
+// Simplify decimal conversion
+function _convertToAssetDecimals(uint256 value) private pure returns (uint256)
+```
+
+#### 2.3 `withdraw()` and `redeem()` functions
+**Current Issues**:
+- Duplicate logic
+- Multiple validation steps
+- Complex allowance handling
+
+**Refactoring Approach**:
+```solidity
+// Create shared withdraw logic
+function _processWithdrawal(
+    uint256 shares,
+    uint256 assets,
+    address receiver,
+    address owner
+) private
+```
+
+### Phase 3: Refactor ManagedRedemptionQueue.sol
+Focus on queue management functions:
+
+#### 3.1 `processRedemptions()` function
+**Current Issues**:
+- Loop with multiple local variables
+- Complex state updates
+- Multiple external calls
+
+**Refactoring Approach**:
+```solidity
+// Extract single redemption processing
+function _processSingleRedemption(uint256 requestId) private
+
+// Use storage pointers instead of memory copies
+RedemptionRequest storage request = redemptionRequests[requestId];
+```
+
+#### 3.2 `queueRedemption()` function
+**Current Issues**:
+- Multiple validation checks
+- Complex request creation
+
+**Refactoring Approach**:
+```solidity
+// Create request struct more efficiently
+function _createRedemptionRequest(
+    address owner,
+    uint256 shares,
+    address receiver
+) private returns (uint256)
+```
+
+### Phase 4: Refactor MultiCollateralStrategy.sol
+
+#### 4.1 `withdrawTo()` function
+**Current Issues**:
+- Multiple balance checks
+- Complex collateral selection
+
+**Refactoring Approach**:
+```solidity
+// Extract balance validation
+function _validateWithdrawal(address token, uint256 amount) private view
+
+// Simplify transfer execution
+function _executeTransfer(address token, address to, uint256 amount) private
+```
+
+### Phase 5: Refactor MultiCollateralRegistry.sol
+
+#### 5.1 `getValueInUnderlying()` function
+**Current Issues**:
+- Complex decimal conversion math
+- Multiple intermediate calculations
+
+**Refactoring Approach**:
+```solidity
+// Pre-calculate decimal adjustments
+function _getDecimalAdjustment(address token) private view returns (uint256)
+
+// Simplify conversion logic
+function _applyConversionRate(uint256 amount, uint256 rate) private pure
+```
+
+## Implementation Guidelines
+
+### Best Practices to Follow:
+1. **Use Storage Pointers**: Replace memory copies with storage pointers where possible
+2. **Extract Pure Functions**: Move calculations to pure functions that can be optimized
+3. **Combine State Updates**: Group multiple state changes together
+4. **Reduce Return Values**: Use structs for multiple return values
+5. **Eliminate Intermediate Variables**: Direct assignments where readable
+
+### Example Refactoring Pattern:
+```solidity
+// BEFORE: Too many local variables
+function complexFunction() public {
+    uint256 var1 = someCalculation();
+    uint256 var2 = anotherCalculation();
+    uint256 var3 = var1 + var2;
+    address var4 = getAddress();
+    bool var5 = checkCondition();
+    // ... more logic
+}
+
+// AFTER: Extracted and simplified
+function complexFunction() public {
+    ComplexResult memory result = _performCalculations();
+    _executeAction(result);
+}
+
+function _performCalculations() private view returns (ComplexResult memory) {
+    return ComplexResult({
+        total: someCalculation() + anotherCalculation(),
+        target: getAddress(),
+        isValid: checkCondition()
+    });
+}
+```
+
+## Testing Strategy
+
+### After Each Refactoring:
+1. Run `forge test` to ensure all tests still pass
+2. Run `forge build` to verify compilation
+3. Attempt `forge coverage` to check if stack issues are resolved
+4. Compare gas usage before/after to ensure no regression
+
+### Validation Checklist:
+- [ ] All existing tests pass
+- [ ] No change in external function signatures
+- [ ] Gas costs remain similar or improve
+- [ ] Code is more readable and maintainable
+- [ ] forge coverage runs successfully
+
+## Success Criteria
+1. ✅ `forge coverage` runs without `--ir-minimum` flag
+2. ✅ All 509 tests continue to pass
+3. ✅ No regression in gas costs
+4. ✅ Improved code readability and maintainability
+5. ✅ Coverage report generated successfully
+
+## Important Notes
+- Work on branch `sovabtc-2`
+- Do NOT modify any original FountFi contracts (tRWA, GatedMintRWA, etc.)
+- Focus ONLY on BTC vault related contracts
+- Prioritize code quality over minimal changes
+- Document any significant architectural changes
+
+## Commands to Run
 ```bash
-cd ~/Documents/GitHub/fountfi-sovabtc
-./scripts/verify-contracts.sh
+# Switch to the refactoring branch
+git checkout sovabtc-2
+
+# Run tests after each change
+forge test
+
+# Check compilation
+forge build
+
+# Attempt coverage (goal is for this to work)
+forge coverage
+
+# Compare gas reports
+forge test --gas-report
 ```
 
-Tasks:
-- [ ] Run verification script with API key
-- [ ] Confirm each contract is verified on Basescan
-- [ ] Document verification status
-- [ ] Update README with verified badges
-- [ ] Create verification report
+## Files to Modify
+1. `src/vaults/MultiBTCVault.sol` (Priority 1)
+2. `src/strategy/ManagedRedemptionQueue.sol` (Priority 2)
+3. `src/strategy/MultiCollateralStrategy.sol` (Priority 3)
+4. `src/registry/MultiCollateralRegistry.sol` (Priority 4)
 
-Expected outcomes:
-- All 6 contracts verified and readable on Basescan
-- Source code visible to users
-- Constructor arguments confirmed
-
-#### 2. Deploy Frontend to Vercel Production
-**Priority: CRITICAL** - User interface deployment
-
-Deploy the frontend application:
-```bash
-cd frontend
-npm install
-vercel --prod
-```
-
-Tasks:
-- [ ] Install Vercel CLI if needed: `npm i -g vercel`
-- [ ] Login to Vercel: `vercel login`
-- [ ] Configure environment variables in Vercel dashboard
-- [ ] Deploy to production
-- [ ] Test all features on production URL
-- [ ] Configure custom domain if available
-- [ ] Set up preview deployments for branches
-- [ ] Test wallet connections and transactions
-- [ ] Verify onboarding wizard works
-
-Environment variables to set in Vercel:
-```
-NEXT_PUBLIC_NETWORK=base-sepolia
-NEXT_PUBLIC_ALCHEMY_KEY=[your-key]
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=fbdc02ca1d45b13459b8815d9344ee5a
-NEXT_PUBLIC_VAULT_ADDRESS=0x73E27097221d4d9D5893a83350dC7A967b46fab7
-# ... (all other addresses from .env.production)
-```
-
-#### 3. Deploy Ponder Indexer to Railway
-**Priority: HIGH** - Data indexing service
-
-Deploy the indexer:
-```bash
-cd examples/ponder-indexer
-railway login
-railway link
-railway up
-```
-
-Tasks:
-- [ ] Create Railway account if needed
-- [ ] Install Railway CLI: `npm i -g @railway/cli`
-- [ ] Link to Railway project
-- [ ] Configure environment variables in Railway:
-  - `DATABASE_URL` (Neon database)
-  - `PONDER_RPC_URL_84532` (Alchemy Base Sepolia)
-- [ ] Deploy using Docker configuration
-- [ ] Verify indexer is running
-- [ ] Test GraphQL endpoint
-- [ ] Monitor initial sync progress
-- [ ] Set up health checks
-- [ ] Configure auto-scaling
-
-#### 4. Deploy Monitoring System
-**Priority: HIGH** - System observability
-
-Deploy the monitoring infrastructure:
-
-Tasks:
-- [ ] Choose monitoring platform (Grafana Cloud, Datadog, etc.)
-- [ ] Deploy health-monitor container
-- [ ] Configure alert webhooks (Discord/Slack)
-- [ ] Set up dashboards:
-  - TVL tracking
-  - Transaction volumes
-  - Gas costs
-  - Error rates
-  - System health
-- [ ] Test alert notifications
-- [ ] Document monitoring access
-
-#### 5. Submit for Security Audit
-**Priority: CRITICAL** - Required before mainnet
-
-Prepare and submit audit package:
-
-Tasks:
-- [ ] Package `/audit-prep` directory
-- [ ] Research and contact audit firms:
-  - OpenZeppelin
-  - Trail of Bits
-  - Consensys Diligence
-  - Certik
-  - Quantstamp
-- [ ] Request quotes and timelines
-- [ ] Submit initial package
-- [ ] Schedule kickoff call
-- [ ] Prepare team for Q&A
-- [ ] Create audit tracking document
-
-Audit package should include:
-- All contracts source code
-- Test suite
-- Documentation package
-- Deployment addresses
-- Known issues list
-
-#### 6. Set Up Multisig Wallets
-**Priority: HIGH** - Security requirement
-
-Configure Gnosis Safe multisigs:
-
-Tasks:
-- [ ] Deploy Gnosis Safe on Base Sepolia
-- [ ] Configure signers (minimum 3)
-- [ ] Set threshold (2 of 3 or similar)
-- [ ] Transfer admin roles to multisig:
-  - DEFAULT_ADMIN_ROLE
-  - OPERATOR_ROLE
-  - PAUSER_ROLE
-- [ ] Test multisig operations
-- [ ] Document signing procedures
-- [ ] Create operational playbooks
-
-#### 7. Prepare Mainnet Token Research
-**Priority: MEDIUM** - Future requirement
-
-Research actual BTC tokens on target networks:
-
-Tasks:
-- [ ] Document WBTC addresses on:
-  - Base mainnet
-  - Ethereum mainnet
-  - Arbitrum
-  - Optimism
-- [ ] Document tBTC addresses
-- [ ] Research sovaBTC deployment plans
-- [ ] Identify liquidity sources
-- [ ] Plan initial liquidity provision
-- [ ] Create token integration checklist
-
-#### 8. Create Marketing Materials
-**Priority: LOW** - Can be done in parallel
-
-Prepare for public launch:
-
-Tasks:
-- [ ] Create landing page design
-- [ ] Write vault explainer content
-- [ ] Design infographics
-- [ ] Prepare launch announcement
-- [ ] Create social media accounts
-- [ ] Draft documentation site
-- [ ] Plan community channels (Discord/Telegram)
-
-### 📊 Deliverables for Session 14:
-
-1. **Verified Contracts**
-   - [ ] All contracts verified on Basescan
-   - [ ] Verification report created
-   - [ ] Public source code accessible
-
-2. **Live Frontend**
-   - [ ] Deployed to Vercel production
-   - [ ] Custom domain configured (if available)
-   - [ ] All features tested and working
-   - [ ] Preview deployments active
-
-3. **Running Indexer**
-   - [ ] Deployed to Railway
-   - [ ] GraphQL endpoint accessible
-   - [ ] Data syncing correctly
-   - [ ] Monitoring configured
-
-4. **Active Monitoring**
-   - [ ] Dashboards created
-   - [ ] Alerts configured
-   - [ ] Health checks running
-   - [ ] Documentation complete
-
-5. **Audit Process Started**
-   - [ ] Audit firm selected
-   - [ ] Package submitted
-   - [ ] Timeline agreed
-   - [ ] Kickoff scheduled
-
-6. **Multisig Security**
-   - [ ] Safe deployed
-   - [ ] Signers configured
-   - [ ] Roles transferred
-   - [ ] Procedures documented
-
-### 🔧 Useful Commands:
-
-```bash
-# Verify contracts
-./scripts/verify-contracts.sh
-
-# Deploy frontend
-cd frontend && vercel --prod
-
-# Deploy indexer
-cd examples/ponder-indexer && railway up
-
-# Check deployment status
-forge script script/helpers/CheckDeployment.s.sol --rpc-url base-sepolia
-
-# Monitor transactions
-cast logs --address 0x73E27097221d4d9D5893a83350dC7A967b46fab7 --rpc-url base-sepolia
-
-# Test production frontend
-curl https://your-app.vercel.app/api/health
-```
-
-### ⚠️ Important Considerations:
-
-1. **Verification Order**
-   - Verify contracts before announcing publicly
-   - Ensure all constructor args are correct
-   - Keep API keys secure
-
-2. **Production Deployment**
-   - Test everything on staging first
-   - Have rollback plan ready
-   - Monitor closely after deployment
-   - Keep private keys secure
-
-3. **Audit Preparation**
-   - Be responsive to auditor questions
-   - Prepare to fix issues quickly
-   - Plan for audit remediation sprint
-   - Budget for multiple rounds
-
-4. **Security Best Practices**
-   - Never share private keys
-   - Use hardware wallets for mainnet
-   - Enable 2FA on all services
-   - Rotate API keys regularly
-
-### Success Criteria:
-- [ ] All contracts verified and public
-- [ ] Frontend live and accessible to users
-- [ ] Indexer syncing blockchain data
-- [ ] Monitoring showing healthy metrics
-- [ ] Audit process initiated
-- [ ] Multisig controlling admin functions
-- [ ] Team prepared for mainnet deployment
-- [ ] Documentation complete and current
-
-### After Session 14:
-The system will be:
-1. **Fully deployed to production infrastructure**
-2. **Under professional security review**
-3. **Ready for public beta testing**
-4. **Prepared for mainnet deployment post-audit**
-5. **Secured with multisig governance**
-
-This session focuses on executing all the production deployments that have been prepared, getting contracts verified for transparency, and initiating the critical security audit process. After this session, the project will be live and ready for users while undergoing security review.
+## Files to NOT Modify
+- Any contracts in `src/token/` (tRWA.sol, GatedMintRWA.sol, etc.)
+- Any contracts in `src/hooks/` (RulesEngine.sol, KycRulesHook.sol, etc.)
+- Any original FountFi contracts

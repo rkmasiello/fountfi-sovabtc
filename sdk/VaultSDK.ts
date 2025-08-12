@@ -36,46 +36,56 @@ export enum CollateralToken {
 
 export interface ContractAddresses {
   vault: string;
-  queue: string;
-  registry: string;
   strategy: string;
-  priceOracle: string;
   roleManager: string;
   wbtc: string;
   tbtc: string;
   sovaBTC: string;
 }
 
-// Base Sepolia addresses
+// Base Sepolia addresses - to be updated after deployment
 export const BASE_SEPOLIA_ADDRESSES: ContractAddresses = {
-  vault: "0x73E27097221d4d9D5893a83350dC7A967b46fab7",
-  queue: "0x22BC73098CE1Ba2CaE5431fb32051cB4fc0F9C52",
-  registry: "0x15a9983784617aa8892b2677bbaEc23539482B65",
-  strategy: "0x740907524EbD6A481a81cE76B5115A4cDDb80099",
-  priceOracle: "0xDB4479A2360E118CCbD99B88e82522813BDE48f5",
+  vault: "0x0000000000000000000000000000000000000000", // BtcVaultToken address (to be deployed)
+  strategy: "0x0000000000000000000000000000000000000000", // BtcVaultStrategy address (to be deployed)
   roleManager: "0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72",
   wbtc: "0xe44b2870eFcd6Bb3C9305808012621f438e9636D",
   tbtc: "0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802",
   sovaBTC: "0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9"
 };
 
-// Simplified ABIs
+// Updated ABIs for new architecture
 const VAULT_ABI = [
-  "function deposit(address asset, uint256 assets, address receiver) returns (uint256 shares)",
-  "function requestRedemption(uint256 shares) returns (uint256 requestId)",
+  // BtcVaultToken (ERC4626 + custom)
+  "function depositCollateral(address token, uint256 amount, address receiver) returns (uint256 shares)",
+  "function previewDepositCollateral(address token, uint256 amount) view returns (uint256)",
+  "function requestWithdraw(uint256 assets, address receiver, address owner) returns (uint256 requestId)",
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address account) view returns (uint256)",
-  "function sharePrice() view returns (uint256)",
-  "event RedemptionRequested(uint256 indexed requestId, address indexed user, uint256 shares)"
+  "function convertToAssets(uint256 shares) view returns (uint256)",
+  "function convertToShares(uint256 assets) view returns (uint256)",
+  "function pause()",
+  "function unpause()",
+  "function paused() view returns (bool)",
+  "event CollateralDeposited(address indexed depositor, address indexed token, uint256 amount, uint256 shares, address indexed receiver)"
 ];
 
-const QUEUE_ABI = [
-  "function claimRedemption(uint256 requestId)",
-  "function getRedemptionRequest(uint256 requestId) view returns (tuple(address user, uint256 shares, uint256 requestedAt, bool processed, bool claimed, uint256 redeemableAmount))",
-  "function getUserRequests(address user) view returns (uint256[])",
-  "function getTotalPendingShares() view returns (uint256)",
-  "function processRedemptions(uint256[] calldata requestIds)"
+const STRATEGY_ABI = [
+  // BtcVaultStrategy
+  "function addCollateral(address token, uint8 decimals)",
+  "function removeCollateral(address token)",
+  "function isSupportedAsset(address token) view returns (bool)",
+  "function getSupportedCollaterals() view returns (address[])",
+  "function addLiquidity(uint256 amount)",
+  "function removeLiquidity(uint256 amount, address to)",
+  "function rebalanceCollateral(address fromToken, address toToken, uint256 amount)",
+  "function totalAssets() view returns (uint256)",
+  "function collateralBalance(address token) view returns (uint256)",
+  "function availableLiquidity() view returns (uint256)",
+  "function approveWithdrawal(uint256 requestId)",
+  "function rejectWithdrawal(uint256 requestId)",
+  "function processWithdrawals(uint256[] calldata requestIds)",
+  "function withdrawCollateral(address token, uint256 amount, address to)"
 ];
 
 const ERC20_ABI = [
@@ -87,11 +97,11 @@ const ERC20_ABI = [
   "function symbol() view returns (string)"
 ];
 
-export class MultiBTCVaultSDK {
+export class BtcVaultSDK {
   private provider: Provider;
   private signer?: Signer;
-  private vault: Contract;
-  private queue: Contract;
+  private vaultToken: Contract;
+  private strategy: Contract;
   private tokens: Record<CollateralToken, Contract>;
   private addresses: ContractAddresses;
 
@@ -106,9 +116,9 @@ export class MultiBTCVaultSDK {
     
     const signerOrProvider = signer || provider;
     
-    // Initialize contracts
-    this.vault = new Contract(addresses.vault, VAULT_ABI, signerOrProvider);
-    this.queue = new Contract(addresses.queue, QUEUE_ABI, signerOrProvider);
+    // Initialize contracts - now using vaultToken and strategy
+    this.vaultToken = new Contract(addresses.vault, VAULT_ABI, signerOrProvider);
+    this.strategy = new Contract(addresses.strategy, STRATEGY_ABI, signerOrProvider);
     
     // Initialize token contracts
     this.tokens = {
@@ -121,7 +131,7 @@ export class MultiBTCVaultSDK {
   // Static factory methods
   static async connectWallet(
     addresses: ContractAddresses = BASE_SEPOLIA_ADDRESSES
-  ): Promise<MultiBTCVaultSDK> {
+  ): Promise<BtcVaultSDK> {
     if (typeof window === 'undefined' || !window.ethereum) {
       throw new Error('No wallet detected. Please install MetaMask.');
     }
@@ -130,59 +140,60 @@ export class MultiBTCVaultSDK {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     
-    return new MultiBTCVaultSDK(provider, signer, addresses);
+    return new BtcVaultSDK(provider, signer, addresses);
   }
 
   static connectWithPrivateKey(
     privateKey: string,
     rpcUrl: string,
     addresses: ContractAddresses = BASE_SEPOLIA_ADDRESSES
-  ): MultiBTCVaultSDK {
+  ): BtcVaultSDK {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const signer = new ethers.Wallet(privateKey, provider);
     
-    return new MultiBTCVaultSDK(provider, signer, addresses);
+    return new BtcVaultSDK(provider, signer, addresses);
   }
 
   static readOnly(
     rpcUrl: string,
     addresses: ContractAddresses = BASE_SEPOLIA_ADDRESSES
-  ): MultiBTCVaultSDK {
+  ): BtcVaultSDK {
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    return new MultiBTCVaultSDK(provider, undefined, addresses);
+    return new BtcVaultSDK(provider, undefined, addresses);
   }
 
   // Core vault functions
   async getVaultStats(): Promise<VaultStats> {
-    const [totalAssets, totalSupply, sharePrice] = await Promise.all([
-      this.vault.totalAssets(),
-      this.vault.totalSupply(),
-      this.vault.sharePrice()
+    const [totalAssets, totalSupply] = await Promise.all([
+      this.vaultToken.totalAssets(),
+      this.vaultToken.totalSupply()
     ]);
+    
+    // Calculate share price manually
+    const sharePrice = totalSupply > 0n 
+      ? (totalAssets * ethers.parseEther("1")) / totalSupply 
+      : ethers.parseEther("1");
     
     return {
       tvl: ethers.formatUnits(totalAssets, 8),
       totalShares: ethers.formatEther(totalSupply),
-      sharePrice: ethers.formatEther(sharePrice)
+      sharePrice: ethers.formatUnits(sharePrice, 8)
     };
   }
 
   async getUserPosition(address?: string): Promise<UserPosition> {
     const userAddress = address || await this.requireSigner().getAddress();
-    const balance = await this.vault.balanceOf(userAddress);
-    const sharePrice = await this.vault.sharePrice();
-    
-    const shares = ethers.formatEther(balance);
-    const value = parseFloat(shares) * parseFloat(ethers.formatEther(sharePrice));
+    const balance = await this.vaultToken.balanceOf(userAddress);
+    const assets = await this.vaultToken.convertToAssets(balance);
     
     return {
-      shares,
-      value: value.toFixed(8),
+      shares: ethers.formatEther(balance),
+      value: ethers.formatUnits(assets, 8),
       address: userAddress
     };
   }
 
-  async deposit(
+  async depositCollateral(
     token: CollateralToken,
     amount: string | number
   ): Promise<ContractTransaction> {
@@ -202,64 +213,103 @@ export class MultiBTCVaultSDK {
       await approveTx.wait();
     }
     
-    // Deposit
-    return await this.vault.deposit(tokenAddress, amountWei, userAddress);
+    // Deposit collateral
+    return await this.vaultToken.depositCollateral(tokenAddress, amountWei, userAddress);
   }
 
-  async requestRedemption(shares: string | number): Promise<{
+  async previewDepositCollateral(
+    token: CollateralToken,
+    amount: string | number
+  ): Promise<string> {
+    const tokenContract = this.tokens[token];
+    const tokenAddress = await tokenContract.getAddress();
+    const decimals = await tokenContract.decimals();
+    const amountWei = ethers.parseUnits(amount.toString(), decimals);
+    
+    const shares = await this.vaultToken.previewDepositCollateral(tokenAddress, amountWei);
+    return ethers.formatEther(shares);
+  }
+
+  async requestWithdrawal(assets: string | number): Promise<{
     tx: ContractTransaction;
     requestId?: bigint;
   }> {
     this.requireSigner();
     
-    const sharesWei = ethers.parseEther(shares.toString());
-    const tx = await this.vault.requestRedemption(sharesWei);
+    const assetsWei = ethers.parseUnits(assets.toString(), 8); // sovaBTC has 8 decimals
+    const userAddress = await this.signer!.getAddress();
+    const tx = await this.vaultToken.requestWithdraw(assetsWei, userAddress, userAddress);
     
-    // Wait for transaction and parse event
+    // Wait for transaction and get requestId from return value or events
     const receipt = await tx.wait();
-    const event = receipt?.logs.find((log: any) => {
-      try {
-        const parsed = this.vault.interface.parseLog(log);
-        return parsed?.name === 'RedemptionRequested';
-      } catch {
-        return false;
-      }
-    });
+    // Note: requestId handling will depend on actual event structure
     
-    const requestId = event ? BigInt(event.topics[1]) : undefined;
-    
-    return { tx, requestId };
+    return { tx };
   }
 
-  async getRedemptionStatus(requestId: BigNumberish): Promise<RedemptionRequest> {
-    const request = await this.queue.getRedemptionRequest(requestId);
-    
-    return {
-      user: request[0],
-      shares: ethers.formatEther(request[1]),
-      requestedAt: new Date(Number(request[2]) * 1000),
-      processed: request[3],
-      claimed: request[4],
-      redeemableAmount: ethers.formatUnits(request[5], 8)
-    };
+  // Strategy management functions (admin only)
+  async getSupportedCollaterals(): Promise<address[]> {
+    return await this.strategy.getSupportedCollaterals();
   }
 
-  async getUserRequests(address?: string): Promise<RedemptionRequest[]> {
-    const userAddress = address || await this.requireSigner().getAddress();
-    const requestIds = await this.queue.getUserRequests(userAddress);
+  async isSupportedAsset(token: CollateralToken): Promise<boolean> {
+    const tokenContract = this.tokens[token];
+    const tokenAddress = await tokenContract.getAddress();
+    return await this.strategy.isSupportedAsset(tokenAddress);
+  }
+
+  async getCollateralBalance(token: CollateralToken): Promise<string> {
+    const tokenContract = this.tokens[token];
+    const tokenAddress = await tokenContract.getAddress();
+    const balance = await this.strategy.collateralBalance(tokenAddress);
+    const decimals = await tokenContract.decimals();
+    return ethers.formatUnits(balance, decimals);
+  }
+
+  async getAvailableLiquidity(): Promise<string> {
+    const liquidity = await this.strategy.availableLiquidity();
+    return ethers.formatUnits(liquidity, 8); // sovaBTC has 8 decimals
+  }
+
+  // Admin functions
+  async addCollateral(token: CollateralToken): Promise<ContractTransaction> {
+    this.requireSigner();
+    const tokenContract = this.tokens[token];
+    const tokenAddress = await tokenContract.getAddress();
+    const decimals = await tokenContract.decimals();
+    return await this.strategy.addCollateral(tokenAddress, decimals);
+  }
+
+  async addLiquidity(amount: string | number): Promise<ContractTransaction> {
+    this.requireSigner();
+    const amountWei = ethers.parseUnits(amount.toString(), 8);
     
-    const requests: RedemptionRequest[] = [];
-    for (const id of requestIds) {
-      const status = await this.getRedemptionStatus(id);
-      requests.push({ id: id.toString(), ...status });
+    // Approve sovaBTC transfer
+    const sovaBTCContract = this.tokens[CollateralToken.SOVABTC];
+    const userAddress = await this.signer!.getAddress();
+    const allowance = await sovaBTCContract.allowance(userAddress, this.addresses.strategy);
+    
+    if (allowance < amountWei) {
+      const approveTx = await sovaBTCContract.approve(this.addresses.strategy, amountWei);
+      await approveTx.wait();
     }
     
-    return requests;
+    return await this.strategy.addLiquidity(amountWei);
   }
 
-  async claimRedemption(requestId: BigNumberish): Promise<ContractTransaction> {
+  async processWithdrawals(requestIds: BigNumberish[]): Promise<ContractTransaction> {
     this.requireSigner();
-    return await this.queue.claimRedemption(requestId);
+    return await this.strategy.processWithdrawals(requestIds);
+  }
+
+  async approveWithdrawal(requestId: BigNumberish): Promise<ContractTransaction> {
+    this.requireSigner();
+    return await this.strategy.approveWithdrawal(requestId);
+  }
+
+  async rejectWithdrawal(requestId: BigNumberish): Promise<ContractTransaction> {
+    this.requireSigner();
+    return await this.strategy.rejectWithdrawal(requestId);
   }
 
   // Token functions
@@ -289,16 +339,6 @@ export class MultiBTCVaultSDK {
     return await tokenContract.mint(amountWei);
   }
 
-  // Admin functions
-  async processRedemptions(requestIds: BigNumberish[]): Promise<ContractTransaction> {
-    this.requireSigner();
-    return await this.queue.processRedemptions(requestIds);
-  }
-
-  async getTotalPendingShares(): Promise<string> {
-    const pending = await this.queue.getTotalPendingShares();
-    return ethers.formatEther(pending);
-  }
 
   // Helper methods
   private requireSigner(): Signer {
@@ -328,10 +368,10 @@ export const BASE_SEPOLIA_RPC = "https://base-sepolia.g.alchemy.com/v2/e7qIcHOK6
 export async function createVaultSDK(
   privateKeyOrConnect: string | 'wallet',
   rpcUrl: string = BASE_SEPOLIA_RPC
-): Promise<MultiBTCVaultSDK> {
+): Promise<BtcVaultSDK> {
   if (privateKeyOrConnect === 'wallet') {
-    return MultiBTCVaultSDK.connectWallet();
+    return BtcVaultSDK.connectWallet();
   } else {
-    return MultiBTCVaultSDK.connectWithPrivateKey(privateKeyOrConnect, rpcUrl);
+    return BtcVaultSDK.connectWithPrivateKey(privateKeyOrConnect, rpcUrl);
   }
 }

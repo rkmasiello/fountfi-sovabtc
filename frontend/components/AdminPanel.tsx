@@ -368,7 +368,7 @@ export function AdminPanel({ className = '' }: AdminPanelProps) {
                 <div>
                   <p className="text-sm text-gray-500">Pending Shares</p>
                   <p className="text-xl font-bold">
-                    {totalPendingShares ? formatUnits(totalPendingShares, 18) : '0'} mcBTC
+                    {totalPendingShares ? formatUnits(totalPendingShares, 18) : '0'} stSOVABTC
                   </p>
                 </div>
               </div>

@@ -47,7 +47,7 @@ export function VaultStats() {
       
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-sm text-gray-500 mb-1">Total Shares</h3>
-        <p className="text-2xl font-bold text-gray-900">{shares.toFixed(2)} mcBTC</p>
+        <p className="text-2xl font-bold text-gray-900">{shares.toFixed(2)} stSOVABTC</p>
       </div>
       
       <div className="bg-white rounded-lg shadow p-6">
@@ -57,7 +57,7 @@ export function VaultStats() {
       
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-sm text-gray-500 mb-1">Your Balance</h3>
-        <p className="text-2xl font-bold text-gray-900">{userShares.toFixed(4)} mcBTC</p>
+        <p className="text-2xl font-bold text-gray-900">{userShares.toFixed(4)} stSOVABTC</p>
         <p className="text-sm text-gray-500">{(userShares * price).toFixed(6)} BTC value</p>
       </div>
     </div>

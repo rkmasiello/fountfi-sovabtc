@@ -110,7 +110,7 @@ export default function OnboardingWizard({ onComplete, onSkip }: OnboardingWizar
     {
       id: 'deposit',
       title: 'Make Your First Deposit',
-      description: 'Deposit BTC collateral to receive mcBTC shares',
+      description: 'Deposit BTC collateral to receive stSOVABTC shares',
       completed: false, // This would need contract interaction to check
       optional: true,
     },

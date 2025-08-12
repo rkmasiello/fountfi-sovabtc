@@ -11,7 +11,7 @@ The Multi-Collateral BTC Vault system handles tokens with different decimal prec
 | WBTC | 8 | Collateral | Bitcoin standard |
 | tBTC | 18 | Collateral | Ethereum standard |
 | sovaBTC | 18 | Collateral & Redemption | System native |
-| mcBTC | 18 | Vault Shares | ERC-4626 standard |
+| stSOVABTC | 18 | Vault Shares | ERC-4626 standard |
 
 ## Normalization Strategy
 
