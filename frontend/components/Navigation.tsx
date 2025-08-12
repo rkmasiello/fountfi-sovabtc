@@ -2,15 +2,20 @@
 
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Wallet, Vault, Settings, BarChart3, Bell, Zap, ArrowLeftRight } from 'lucide-react';
+import { Wallet, Vault, Settings, BarChart3, Bell, Zap, ArrowLeftRight, Briefcase, Shield } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { NetworkSwitcher } from './NetworkSwitcher';
+import { WalletButton } from './WalletButton';
+import { useWalletDetection } from '@/hooks/useWalletDetection';
 
 export function Navigation() {
   const pathname = usePathname();
+  const { installedCount } = useWalletDetection();
 
   const navItems = [
-    { href: '/', label: 'Dashboard', icon: BarChart3 },
+    { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
     { href: '/vault', label: 'Vault', icon: Vault },
+    { href: '/portfolio', label: 'Portfolio', icon: Briefcase },
     { href: '/staking', label: 'Staking', icon: Zap },
     { href: '/bridge', label: 'Bridge', icon: ArrowLeftRight },
     { href: '/admin', label: 'Admin', icon: Settings },
@@ -59,6 +64,9 @@ export function Navigation() {
 
           {/* Right Side with Enhanced Glass Cards */}
           <div className="flex items-center space-x-3">
+            {/* Network Switcher */}
+            <NetworkSwitcher />
+
             {/* Glass Icon Buttons */}
             <button className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/15 shadow-[0_4px_15px_0_rgba(31,38,135,0.2)] rounded-xl w-10 h-10 p-0 border flex items-center justify-center">
               <Bell className="w-4 h-4" />
@@ -97,25 +105,26 @@ export function Navigation() {
                         return (
                           <button 
                             onClick={openConnectModal}
-                            className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-size-200 bg-pos-0 hover:bg-pos-100 transition-all duration-500 text-white shadow-[0_8px_25px_0_rgba(59,130,246,0.4)] hover:shadow-[0_12px_35px_0_rgba(59,130,246,0.6)] transform hover:scale-105 rounded-xl border border-white/20 backdrop-blur-sm px-4 py-2 flex items-center"
+                            className="relative bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-size-200 bg-pos-0 hover:bg-pos-100 transition-all duration-500 text-white shadow-[0_8px_25px_0_rgba(59,130,246,0.4)] hover:shadow-[0_12px_35px_0_rgba(59,130,246,0.6)] transform hover:scale-105 rounded-xl border border-white/20 backdrop-blur-sm px-4 py-2 flex items-center group"
                           >
                             <Wallet className="w-4 h-4 mr-2" />
                             <span className="font-semibold">Connect Wallet</span>
+                            {installedCount > 0 && (
+                              <div className="absolute -top-2 -right-2">
+                                <div className="relative">
+                                  <div className="absolute inset-0 bg-green-500 rounded-full blur animate-pulse"></div>
+                                  <div className="relative bg-green-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                    {installedCount}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 blur-xl group-hover:blur-2xl transition-all duration-500 -z-10"></div>
                           </button>
                         );
                       }
 
-                      return (
-                        <button 
-                          onClick={openAccountModal}
-                          className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/15 shadow-[0_4px_15px_0_rgba(31,38,135,0.2)] rounded-xl px-4 py-2 border flex items-center space-x-2"
-                        >
-                          <Wallet className="w-4 h-4" />
-                          <span className="font-medium">
-                            {account.displayName}
-                          </span>
-                        </button>
-                      );
+                      return <WalletButton />;
                     })()}
                   </div>
                 );
