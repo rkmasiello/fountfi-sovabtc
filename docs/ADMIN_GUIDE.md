@@ -1,6 +1,6 @@
 # Administrator Guide - Multi-Collateral BTC Vault
 
-This guide provides comprehensive instructions for administrators managing the Multi-Collateral BTC Vault system deployed on Base Sepolia.
+This guide provides comprehensive instructions for administrators managing the BTC Vault system on Base Sepolia and future mainnet deployments.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -9,55 +9,56 @@ This guide provides comprehensive instructions for administrators managing the M
 - [Collateral Management](#collateral-management)
 - [Liquidity Management](#liquidity-management)
 - [Withdrawal Processing](#withdrawal-processing)
-- [Price Oracle Management](#price-oracle-management)
 - [Emergency Procedures](#emergency-procedures)
 - [Monitoring and Maintenance](#monitoring-and-maintenance)
-- [Scripts and Commands](#scripts-and-commands)
+- [Script Reference](#script-reference)
 
 ## Overview
 
-The BTC Vault system requires active management for:
+As an administrator of the BTC Vault system, you are responsible for:
+- Managing supported collateral types
+- Maintaining sovaBTC liquidity for withdrawals
 - Processing withdrawal requests
-- Managing sovaBTC liquidity
-- Updating price oracles
-- Adding/removing collateral types
 - Monitoring system health
+- Responding to emergencies
 
-### Current Deployment
+### Current Deployment (Base Sepolia)
 
-| Contract | Address | Role |
-|----------|---------|------|
-| BtcVaultStrategy | `0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8` | Manages collateral and liquidity |
-| BtcVaultToken | `0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a` | ERC4626 vault token |
-| PriceOracleReporter | `0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF` | Price feed for NAV |
+| Component | Address | Role Required |
+|-----------|---------|---------------|
+| BtcVaultStrategy | `0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8` | STRATEGY_OPERATOR |
+| BtcVaultToken | `0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a` | STRATEGY_ADMIN |
+| RoleManager | `0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72` | PROTOCOL_ADMIN |
 
 ## Admin Roles and Permissions
 
-### Role Structure
+### Role Hierarchy
 
-The system uses FountFi's RoleManager for access control:
-
-```solidity
-uint256 constant PROTOCOL_ADMIN = 1;    // System-wide admin
-uint256 constant STRATEGY_ADMIN = 2;    // Strategy management
-uint256 constant STRATEGY_OPERATOR = 8; // Daily operations
-uint256 constant PRICE_UPDATER = 32;    // Oracle updates
+```
+PROTOCOL_ADMIN (1)
+├── STRATEGY_ADMIN (2)
+│   └── STRATEGY_OPERATOR (8)
+├── RULES_ADMIN (4)
+│   └── KYC_OPERATOR (16)
+└── PRICE_UPDATER (32)
 ```
 
-### Current Admin Setup
+### Key Permissions
 
-- **Manager Address**: `0x1f53aA5d3b5743BD0D41884124bC07f4d7682Fc1`
-- **Role Manager**: `0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72`
+| Role | Permissions | Contract |
+|------|------------|----------|
+| **PROTOCOL_ADMIN** | Grant/revoke roles, system configuration | RoleManager |
+| **STRATEGY_ADMIN** | Strategy parameters, pause/unpause | BtcVaultStrategy |
+| **STRATEGY_OPERATOR** | Daily operations, withdrawals, liquidity | BtcVaultStrategy |
 
-### Granting Roles
+### Checking Roles
 
 ```bash
-# Grant STRATEGY_OPERATOR role
-cast send 0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72 \
-  "grantRole(address,uint256)" \
-  NEW_OPERATOR_ADDRESS 8 \
-  --private-key $ADMIN_KEY \
-  --rpc-url base-sepolia
+# Check if address has role
+cast call 0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72 "hasRole(address,uint256)" ADDRESS ROLE_NUMBER --rpc-url base-sepolia
+
+# Example: Check if address has STRATEGY_OPERATOR role (8)
+cast call 0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72 "hasRole(address,uint256)" 0x1f53aA5d3b5743BD0D41884124bC07f4d7682Fc1 8 --rpc-url base-sepolia
 ```
 
 ## Daily Operations
@@ -76,40 +77,33 @@ cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 "availableLiquidity()" --rp
 cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a "pendingWithdrawals()" --rpc-url base-sepolia
 ```
 
-2. **Process Withdrawals**
-```bash
-# Check for approved withdrawals ready to process
-forge script script/admin/ProcessWithdrawals.s.sol --rpc-url base-sepolia
-```
+2. **Review Overnight Activity**
+   - Check for new deposits
+   - Review withdrawal requests
+   - Monitor for unusual activity
 
-3. **Update Price Oracle (if needed)**
-```bash
-# Update price with current BTC value
-cast send 0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF \
-  "update(uint256)" \
-  NEW_PRICE \
-  --private-key $PRICE_UPDATER_KEY \
-  --rpc-url base-sepolia
-```
+3. **Process Withdrawals** (if any pending)
+   - Review pending withdrawal requests
+   - Ensure sufficient liquidity
+   - Approve or reject requests
 
 ## Collateral Management
-
-### Supported Collateral
-
-Current supported tokens:
-- WBTC: `0xe44b2870eFcd6Bb3C9305808012621f438e9636D`
-- TBTC: `0xE2b47f0dD766834b9DD2612D2d3632B05Ca89802`
-- sovaBTC: `0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9`
 
 ### Adding New Collateral
 
 ```bash
-# Add new collateral type (1:1 ratio = 1e18)
+# Add new collateral type (requires STRATEGY_OPERATOR role)
 cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "addSupportedCollateral(address,uint256)" \
-  NEW_TOKEN_ADDRESS \
-  1000000000000000000 \
-  --private-key $MANAGER_KEY \
+  COLLATERAL_ADDRESS RATIO \
+  --private-key $PRIVATE_KEY \
+  --rpc-url base-sepolia
+
+# Example: Add new BTC token with 1:1 ratio
+cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
+  "addSupportedCollateral(address,uint256)" \
+  0xNEW_TOKEN_ADDRESS 1000000000000000000 \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
@@ -119,244 +113,187 @@ cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
 # Remove collateral support
 cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "removeSupportedCollateral(address)" \
-  TOKEN_ADDRESS \
-  --private-key $MANAGER_KEY \
+  COLLATERAL_ADDRESS \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-### Checking Collateral Status
+### Viewing Supported Collaterals
 
 ```bash
-# Check if token is supported
+# Get list of supported collaterals
+cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
+  "getSupportedCollaterals()" \
+  --rpc-url base-sepolia
+
+# Check if specific token is supported
 cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "isSupportedCollateral(address)" \
   TOKEN_ADDRESS \
-  --rpc-url base-sepolia
-
-# Get all supported collaterals
-cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
-  "getSupportedCollaterals()" \
   --rpc-url base-sepolia
 ```
 
 ## Liquidity Management
 
-### Managing sovaBTC Liquidity
+### Adding Liquidity
 
-The strategy requires sovaBTC liquidity to process withdrawals.
-
-#### Adding Liquidity
+The strategy needs sovaBTC liquidity to process withdrawals.
 
 ```bash
-# First approve sovaBTC spending
+# First, approve sovaBTC spending
 cast send 0x05aB19d77516414f7333a8fd52cC1F49FF8eAFA9 \
   "approve(address,uint256)" \
   0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   AMOUNT \
-  --private-key $MANAGER_KEY \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 
-# Add liquidity to strategy
+# Then add liquidity
 cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "addLiquidity(uint256)" \
   AMOUNT \
-  --private-key $MANAGER_KEY \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-#### Removing Excess Liquidity
+### Using the AddLiquidity Script
 
 ```bash
-# Remove liquidity from strategy
+# Run the liquidity script (easier method)
+PRIVATE_KEY=$PRIVATE_KEY forge script script/AddLiquidity.s.sol:AddLiquidityScript \
+  --rpc-url base-sepolia \
+  --broadcast
+```
+
+### Removing Excess Liquidity
+
+```bash
+# Remove liquidity if too much is idle
 cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "removeLiquidity(uint256)" \
   AMOUNT \
-  --private-key $MANAGER_KEY \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-#### Monitoring Liquidity
+### Monitoring Liquidity Levels
 
 ```bash
 # Check current available liquidity
 cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "availableLiquidity()" \
   --rpc-url base-sepolia
-```
 
-### Using Helper Scripts
-
-```bash
-# Add liquidity using script
-forge script script/AddLiquidity.s.sol \
-  --rpc-url base-sepolia \
-  --broadcast \
-  --private-key $MANAGER_KEY
-
-# Mint test tokens (testnet only)
-forge script script/MintTestTokens.s.sol \
-  --rpc-url base-sepolia \
-  --broadcast \
-  --private-key $MANAGER_KEY
+# Check total pending withdrawals
+cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
+  "totalPendingWithdrawals()" \
+  --rpc-url base-sepolia
 ```
 
 ## Withdrawal Processing
 
-### Understanding the Managed Withdrawal System
-
-1. Users request withdrawals through `requestRedeem()`
-2. Admin reviews and approves requests
-3. Strategy processes approved withdrawals using available liquidity
-
-### Processing Workflow
-
-#### Step 1: Check Pending Withdrawals
+### Viewing Pending Withdrawals
 
 ```bash
-# Get pending withdrawal count
+# Get pending withdrawal requests
 cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
-  "pendingWithdrawals()" \
+  "getPendingWithdrawals()" \
   --rpc-url base-sepolia
-```
 
-#### Step 2: Review Withdrawal Requests
-
-```bash
-# Get specific withdrawal request details
+# Check specific withdrawal request
 cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
   "withdrawalRequests(uint256)" \
   REQUEST_ID \
   --rpc-url base-sepolia
 ```
 
-#### Step 3: Approve Withdrawals
+### Approving Withdrawals
 
 ```bash
-# Approve a withdrawal request
+# Approve a single withdrawal
 cast send 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
   "approveWithdrawal(uint256)" \
   REQUEST_ID \
-  --private-key $MANAGER_KEY \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
-```
 
-#### Step 4: Process Approved Withdrawals
-
-```bash
-# Process all approved withdrawals
-cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
-  "processWithdrawals()" \
-  --private-key $MANAGER_KEY \
-  --rpc-url base-sepolia
-```
-
-### Batch Processing
-
-For multiple withdrawals:
-```bash
-# Approve multiple withdrawals
+# Batch approve multiple withdrawals
 cast send 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
   "batchApproveWithdrawals(uint256[])" \
   "[1,2,3,4,5]" \
-  --private-key $MANAGER_KEY \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-## Price Oracle Management
-
-### Understanding the Price Oracle
-
-The PriceOracleReporter provides the NAV (Net Asset Value) for the vault.
-
-### Updating Price
+### Rejecting Withdrawals
 
 ```bash
-# Update price (8 decimals for BTC)
-# Example: 1 BTC = 100000000 (1e8)
-cast send 0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF \
-  "update(uint256)" \
-  100000000 \
-  --private-key $PRICE_UPDATER_KEY \
+# Reject a withdrawal request
+cast send 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
+  "rejectWithdrawal(uint256)" \
+  REQUEST_ID \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-### Setting Max Deviation
+### Processing Flow
 
-Protect against price manipulation:
-```bash
-# Set max deviation to 5% (500 basis points)
-cast send 0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF \
-  "setMaxDeviation(uint16)" \
-  500 \
-  --private-key $ADMIN_KEY \
-  --rpc-url base-sepolia
-```
-
-### Checking Oracle Status
-
-```bash
-# Get current price
-cast call 0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF \
-  "getLatestPrice()" \
-  --rpc-url base-sepolia
-
-# Check last update time
-cast call 0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF \
-  "lastUpdateTime()" \
-  --rpc-url base-sepolia
-```
+1. **Review Request**: Check the withdrawal details
+2. **Verify Liquidity**: Ensure sufficient sovaBTC available
+3. **Approve/Reject**: Process based on criteria
+4. **Monitor**: Verify successful transfer to user
 
 ## Emergency Procedures
 
-### 1. Pausing Operations
+### 1. Pausing the System
 
-If critical issues arise:
+In case of emergency, pause all operations:
+
 ```bash
-# Pause vault (if pause functionality exists)
+# Pause the vault token (stops deposits/withdrawals)
 cast send 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
   "pause()" \
-  --private-key $ADMIN_KEY \
+  --private-key $PRIVATE_KEY \
+  --rpc-url base-sepolia
+
+# Unpause when safe
+cast send 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
+  "unpause()" \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-### 2. Emergency Withdrawal Processing
+### 2. Emergency Token Recovery
 
-Force process specific withdrawals:
+If tokens get stuck in contracts:
+
 ```bash
-# Emergency withdrawal processing
-cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
-  "emergencyWithdraw(address,uint256)" \
-  USER_ADDRESS \
-  AMOUNT \
-  --private-key $ADMIN_KEY \
-  --rpc-url base-sepolia
-```
-
-### 3. Recovering Stuck Tokens
-
-If tokens get stuck:
-```bash
-# Recover ERC20 tokens from strategy
+# Recover stuck tokens from strategy
 cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
   "sendToken(address,address,uint256)" \
-  TOKEN_ADDRESS \
-  RECIPIENT \
-  AMOUNT \
-  --private-key $MANAGER_KEY \
+  TOKEN_ADDRESS RECIPIENT AMOUNT \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
 
-### 4. Updating Manager
+### 3. Forcing Withdrawal Processing
 
-Change strategy manager:
+In urgent cases, force process withdrawals:
+
 ```bash
-# Set new manager
-cast send 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 \
-  "setManager(address)" \
-  NEW_MANAGER_ADDRESS \
-  --private-key $ADMIN_KEY \
+# Force process specific withdrawal
+cast send 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
+  "forceProcessWithdrawal(uint256)" \
+  REQUEST_ID \
+  --private-key $PRIVATE_KEY \
   --rpc-url base-sepolia
 ```
+
+### 4. Emergency Contacts
+
+- **Technical Issues**: Open GitHub issue
+- **Security Concerns**: Contact security team immediately
+- **User Issues**: Direct to support channels
 
 ## Monitoring and Maintenance
 
@@ -370,161 +307,193 @@ cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a "totalAssets()" --rpc-url b
 2. **Share Price**
 ```bash
 # Get price of 1 share (1e18)
-cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a \
-  "convertToAssets(uint256)" \
-  1000000000000000000 \
-  --rpc-url base-sepolia
+cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a "convertToAssets(uint256)" 1000000000000000000 --rpc-url base-sepolia
 ```
 
-3. **Total Shares Outstanding**
-```bash
-cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a "totalSupply()" --rpc-url base-sepolia
-```
-
-4. **Available Liquidity**
+3. **Available Liquidity**
 ```bash
 cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 "availableLiquidity()" --rpc-url base-sepolia
+```
+
+4. **Pending Withdrawals**
+```bash
+cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a "pendingWithdrawals()" --rpc-url base-sepolia
+```
+
+### Setting Up Monitoring
+
+#### Using Tenderly
+
+1. Import contracts to Tenderly
+2. Set up alerts for:
+   - Large deposits/withdrawals
+   - Liquidity below threshold
+   - Failed transactions
+   - Unusual activity patterns
+
+#### Custom Monitoring Script
+
+```javascript
+// monitoring.js
+const checkVaultHealth = async () => {
+  const tvl = await vaultToken.totalAssets();
+  const liquidity = await strategy.availableLiquidity();
+  const pending = await vaultToken.pendingWithdrawals();
+  
+  // Alert if liquidity < pending withdrawals
+  if (liquidity < pending) {
+    sendAlert("Insufficient liquidity for pending withdrawals!");
+  }
+  
+  // Alert if TVL drops > 20%
+  if (tvl < previousTVL * 0.8) {
+    sendAlert("TVL dropped significantly!");
+  }
+};
+
+// Run every 5 minutes
+setInterval(checkVaultHealth, 5 * 60 * 1000);
 ```
 
 ### Regular Maintenance Tasks
 
 #### Daily
-- Check and process pending withdrawals
+- Check system health
+- Process pending withdrawals
 - Monitor liquidity levels
-- Review recent transactions
-- Update price oracle if needed
+- Review transaction logs
 
 #### Weekly
-- Review collateral balances
-- Analyze deposit/withdrawal patterns
-- Check for any failed transactions
-- Review gas costs and optimize if needed
+- Review collateral ratios
+- Analyze user activity patterns
+- Update liquidity forecasts
+- Generate performance reports
 
 #### Monthly
 - Full system audit
 - Review and update documentation
-- Check for contract upgrades
-- Performance analysis
+- Optimize gas usage
+- Plan for upcoming changes
 
-### Setting Up Monitoring
+## Script Reference
 
-Create a monitoring script:
+### Available Admin Scripts
+
 ```bash
-#!/bin/bash
-# monitor.sh
+# Liquidity Management
+script/AddLiquidity.s.sol              # Add sovaBTC liquidity
+script/MintTestTokens.s.sol            # Mint test tokens (testnet only)
 
-echo "=== BTC Vault Status ==="
-echo "TVL: $(cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a 'totalAssets()' --rpc-url base-sepolia)"
-echo "Liquidity: $(cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 'availableLiquidity()' --rpc-url base-sepolia)"
-echo "Pending: $(cast call 0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a 'pendingWithdrawals()' --rpc-url base-sepolia)"
+# Deployment
+script/deploy/DeployBtcVault.s.sol    # Deploy new vault instance
+script/verify/VerifyBtcVault.s.sol    # Verify deployment
+
+# Testing
+test/BtcVaultRefactorTest.t.sol       # Run integration tests
 ```
 
-## Scripts and Commands
-
-### Useful Cast Commands
+### Running Scripts
 
 ```bash
-# Format output as decimal
-cast --to-dec $(cast call CONTRACT "METHOD()" --rpc-url base-sepolia)
-
-# Format BTC amount (8 decimals)
-cast --to-unit $(cast call CONTRACT "balance()" --rpc-url base-sepolia) 8
-
-# Send transaction with specific gas
-cast send CONTRACT "METHOD()" \
-  --gas-limit 500000 \
-  --gas-price 20gwei \
-  --private-key $KEY \
-  --rpc-url base-sepolia
-```
-
-### Admin Scripts
-
-Location: `script/admin/`
-
-- `AddLiquidity.s.sol` - Add sovaBTC liquidity
-- `ProcessWithdrawals.s.sol` - Process pending withdrawals
-- `UpdateOracle.s.sol` - Update price oracle
-- `RebalanceCollateral.s.sol` - Rebalance strategy holdings
-
-### Running Admin Scripts
-
-```bash
-# Generic script execution
-forge script script/admin/ScriptName.s.sol:ScriptName \
+# General format
+forge script script/SCRIPT_NAME.s.sol:CONTRACT_NAME \
   --rpc-url base-sepolia \
+  --private-key $PRIVATE_KEY \
   --broadcast \
-  --private-key $ADMIN_KEY \
   -vvv
+
+# Example: Add liquidity
+forge script script/AddLiquidity.s.sol:AddLiquidityScript \
+  --rpc-url base-sepolia \
+  --private-key $PRIVATE_KEY \
+  --broadcast
 ```
 
 ## Best Practices
 
 ### Security
 
-1. **Use Hardware Wallets**: For mainnet admin keys
-2. **Multi-sig**: Implement multi-sig for critical operations
-3. **Time Delays**: Add time delays for sensitive changes
-4. **Monitoring**: Set up 24/7 monitoring with alerts
-5. **Backup Keys**: Maintain secure backup of admin keys
+1. **Use Hardware Wallets**: For mainnet admin operations
+2. **Multi-sig Wallets**: Require multiple signatures for critical operations
+3. **Regular Audits**: Review permissions and access regularly
+4. **Monitor Always**: Set up 24/7 monitoring with alerts
+5. **Test First**: Always test on testnet before mainnet
 
 ### Operations
 
-1. **Document Everything**: Log all admin actions
-2. **Test First**: Always test on testnet
-3. **Gradual Changes**: Make incremental adjustments
-4. **Communication**: Notify users of maintenance
-5. **Regular Audits**: Conduct periodic security reviews
+1. **Document Everything**: Keep logs of all admin actions
+2. **Regular Backups**: Backup configuration and state
+3. **Gradual Changes**: Make incremental changes, not drastic ones
+4. **Communication**: Keep users informed of maintenance
+5. **Redundancy**: Have backup admins trained and ready
 
 ### Performance
 
-1. **Batch Operations**: Process multiple items together
-2. **Gas Optimization**: Execute during low gas periods
-3. **Liquidity Buffer**: Maintain 20% extra liquidity
-4. **Regular Rebalancing**: Keep collateral balanced
+1. **Gas Optimization**: Batch operations when possible
+2. **Timing**: Execute during low-traffic periods
+3. **Monitoring**: Track gas costs and optimize
+4. **Efficiency**: Use scripts for repetitive tasks
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Issue: Transaction Fails with "Unauthorized"
-**Solution**: Check you have the correct role:
+#### "Insufficient Liquidity" Error
 ```bash
-cast call 0x15502fC5e872c8B22BA6dD5e01A7A5bd4f9A3d72 \
-  "hasRole(address,uint256)" \
-  YOUR_ADDRESS \
-  ROLE_ID \
-  --rpc-url base-sepolia
+# Check available liquidity
+cast call 0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8 "availableLiquidity()" --rpc-url base-sepolia
+
+# Add more if needed
+forge script script/AddLiquidity.s.sol --rpc-url base-sepolia --broadcast
 ```
 
-#### Issue: Insufficient Liquidity for Withdrawals
-**Solution**: Add more sovaBTC liquidity or wait for deposits
+#### Transaction Failing
+- Check gas price and limits
+- Verify role permissions
+- Ensure contract not paused
+- Check token approvals
 
-#### Issue: Oracle Price Stale
-**Solution**: Update the oracle with current price
+#### Cannot Process Withdrawal
+- Verify admin role
+- Check liquidity availability
+- Ensure withdrawal request exists
+- Verify not already processed
 
-#### Issue: Gas Too High
-**Solution**: Wait for lower gas or increase gas price tolerance
+## Appendix
 
-## Support and Resources
+### Contract ABIs
 
-### Documentation
-- [FountFi Protocol Docs](https://docs.fountfi.com)
-- [Integration Guide](./INTEGRATION_GUIDE.md)
-- [User Guide](./USER_GUIDE.md)
+ABIs are available in:
+- `frontend/lib/abis.ts` - Frontend ABIs
+- `out/` directory after building - Full contract ABIs
 
-### Contracts on BaseScan
-- [BtcVaultToken](https://sepolia.basescan.org/address/0xfF09B2B0AfEe51E29941091C4dd6B635780BC34a)
-- [BtcVaultStrategy](https://sepolia.basescan.org/address/0x0A039085Ca2AD68a3FC77A9C5191C22B309126F8)
-- [PriceOracleReporter](https://sepolia.basescan.org/address/0x698FBBde2c9FF3aF64C0ec48f174d5e8231FAacF)
+### Environment Variables
 
-### Emergency Contacts
-- Technical Issues: Open GitHub issue
-- Security Concerns: security@yourproject.com
-- General Support: support@yourproject.com
+```bash
+# .env file structure
+PRIVATE_KEY=0x...
+ETHERSCAN_API_KEY=...
+BASE_SEPOLIA_RPC=https://sepolia.base.org
+```
+
+### Useful Commands
+
+```bash
+# Get contract bytecode size
+forge inspect BtcVaultStrategy bytecode | wc -c
+
+# Run specific test
+forge test --match-test test_depositCollateral -vvv
+
+# Generate gas report
+forge test --gas-report
+
+# Verify contract on Etherscan
+forge verify-contract ADDRESS CONTRACT_NAME --chain-id 84532
+```
 
 ---
 
 *Last Updated: 2025-08-12*
 *Version: 1.0.0*
-*Network: Base Sepolia Testnet*
+*Network: Base Sepolia*
