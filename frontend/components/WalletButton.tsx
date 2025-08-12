@@ -53,7 +53,7 @@ export function WalletButton() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/15 shadow-[0_4px_15px_0_rgba(31,38,135,0.2)] rounded-xl px-4 py-2 border flex items-center space-x-2 transition-all duration-300"
+        className="glass-button rounded-xl px-4 py-2 flex items-center space-x-2 transition-all duration-300"
       >
         {ensAvatar ? (
           <img src={ensAvatar} alt="ENS Avatar" className="w-5 h-5 rounded-full" />
@@ -76,14 +76,14 @@ export function WalletButton() {
           
           {/* Dropdown */}
           <div className="absolute right-0 mt-2 w-72 z-50">
-            <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] overflow-hidden">
+            <div className="glass-card rounded-2xl overflow-hidden">
               {/* Account Info */}
               <div className="p-4 border-b border-white/10">
                 <div className="flex items-center space-x-3">
                   {ensAvatar ? (
                     <img src={ensAvatar} alt="ENS Avatar" className="w-10 h-10 rounded-full" />
                   ) : (
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
                       <User className="w-5 h-5 text-white" />
                     </div>
                   )}
@@ -115,7 +115,7 @@ export function WalletButton() {
               <div className="p-2">
                 <button
                   onClick={copyAddress}
-                  className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left"
+                  className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
                 >
                   <Copy className="w-4 h-4 text-white/60" />
                   <span className="text-white/87">Copy Address</span>
@@ -126,7 +126,7 @@ export function WalletButton() {
                     window.open(`https://basescan.org/address/${address}`, '_blank');
                     setIsOpen(false);
                   }}
-                  className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left"
+                  className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
                 >
                   <Activity className="w-4 h-4 text-white/60" />
                   <span className="text-white/87">View on Explorer</span>
@@ -134,7 +134,7 @@ export function WalletButton() {
                 
                 <button
                   onClick={handleDisconnect}
-                  className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left text-red-400"
+                  className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left text-rose-400"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Disconnect</span>
