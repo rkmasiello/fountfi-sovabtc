@@ -4,10 +4,13 @@ import { WalletConnect } from '@/components/WalletConnect';
 import { VaultStats } from '@/components/VaultStats';
 import { DepositForm } from '@/components/DepositForm';
 import { RedemptionQueue } from '@/components/RedemptionQueue';
+import { AdminPanel } from '@/components/AdminPanel';
 import { useAccount } from 'wagmi';
+import { useState } from 'react';
 
 export default function Home() {
   const { isConnected } = useAccount();
+  const [showAdmin, setShowAdmin] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -39,6 +42,23 @@ export default function Home() {
         ) : (
           <>
             <VaultStats />
+            
+            {/* Admin Panel Toggle */}
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setShowAdmin(!showAdmin)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+              >
+                {showAdmin ? 'Hide Admin Panel' : 'Show Admin Panel'}
+              </button>
+            </div>
+
+            {/* Admin Panel */}
+            {showAdmin && (
+              <div className="mb-8">
+                <AdminPanel />
+              </div>
+            )}
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <DepositForm />
