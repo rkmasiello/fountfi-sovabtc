@@ -32,13 +32,13 @@ export default createConfig({
     BtcVaultToken: {
       network: activeNetwork,
       abi: BtcVaultTokenAbi as any,
-      address: contractConfig.btcVaultToken as `0x${string}`,
+      address: contractConfig.btcVaultToken as \`0x\${string}\`,
       startBlock: contractConfig.startBlock,
     },
     BtcVaultStrategy: {
       network: activeNetwork,
       abi: BtcVaultStrategyAbi as any,
-      address: contractConfig.btcVaultStrategy as `0x${string}`,
+      address: contractConfig.btcVaultStrategy as \`0x\${string}\`,
       startBlock: contractConfig.startBlock,
     },
   },

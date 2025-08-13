@@ -3,17 +3,36 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy root package files first
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci
+# Install root dependencies (if package-lock exists, use ci, otherwise use install)
+RUN if [ -f "package-lock.json" ]; then \
+      npm ci; \
+    else \
+      npm install; \
+    fi
 
 # Generate Prisma client
 RUN npx prisma generate
 
-# Copy scheduler source
+# Copy scheduler package.json
+COPY services/scheduler/package*.json ./services/scheduler/
+
+# Install scheduler dependencies
+WORKDIR /app/services/scheduler
+RUN if [ -f "package-lock.json" ]; then \
+      npm ci; \
+    else \
+      npm install; \
+    fi
+
+# Copy source files
+WORKDIR /app
 COPY services/scheduler ./services/scheduler
 COPY lib/services/blockchainService.ts ./lib/services/
 COPY lib/abis.ts ./lib/
@@ -27,15 +46,19 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and wget for proper signal handling and healthcheck
+RUN apk add --no-cache dumb-init wget
 
 # Copy package files
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma/
 
 # Install production dependencies only
-RUN npm ci --omit=dev && \
+RUN if [ -f "package-lock.json" ]; then \
+      npm ci --omit=dev; \
+    else \
+      npm install --omit=dev; \
+    fi && \
     npx prisma generate && \
     npm cache clean --force
 
@@ -43,9 +66,10 @@ RUN npm ci --omit=dev && \
 COPY --from=builder /app/services/scheduler/dist ./services/scheduler/dist
 COPY --from=builder /app/lib ./lib
 
-# Create non-root user
+# Create non-root user and set permissions
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
 
 USER nodejs
 
@@ -53,8 +77,8 @@ USER nodejs
 EXPOSE 3001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

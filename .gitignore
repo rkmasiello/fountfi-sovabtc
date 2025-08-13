@@ -10,6 +10,39 @@ out/
 # Dotenv file
 .env
 
+# Frontend files
+/frontend/.env
+/frontend/node_modules
+
+# Indexer files
+/frontend/indexer/.env
+/frontend/indexer/node_modules
+/frontend/indexer/dist
+/frontend/indexer/build
+/frontend/indexer/coverage
+/frontend/indexer/coverage-report
+/frontend/indexer/.ponder
+/frontend/indexer/ponder.db
+/frontend/indexer/ponder.db-shm
+/frontend/indexer/ponder.db-wal
+/frontend/indexer/ponder.db-journal
+/frontend/indexer/ponder.db-lock
+/frontend/indexer/ponder.db-lock.lock
+
+# Services files
+/frontend/services/
+/frontend/services/node_modules
+/frontend/services/dist
+/frontend/services/build
+/frontend/services/coverage
+/frontend/services/coverage-report
+/frontend/services/logs
+/frontend/services/logs/
+/frontend/services/logs/indexer.log
+/frontend/services/logs/indexer.log.1
+/frontend/services/logs/indexer.log.2
+/frontend/services/logs/indexer.log.3
+
 # Forge files
 .forge/
 

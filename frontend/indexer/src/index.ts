@@ -1,6 +1,6 @@
-// Export all event handlers
-export * from "./BtcVaultToken";
-export * from "./BtcVaultStrategy";
+// Import event handlers (they register themselves)
+import "./BtcVaultToken";
+import "./BtcVaultStrategy";
 
 // Log startup
 console.log("🚀 SovaBTC Indexer Started");

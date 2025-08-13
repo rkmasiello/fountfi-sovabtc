@@ -117,41 +117,11 @@ ponder.on("BtcVaultStrategy:LiquidityRemoved", async ({ event, context }) => {
   });
 });
 
-// BtcVaultStrategy: WithdrawalApproved event
-ponder.on("BtcVaultStrategy:WithdrawalApproved", async ({ event, context }) => {
-  const { db } = context;
-  const { user, shares } = event.args;
-  const { timestamp, number: blockNumber } = event.block;
-  const { hash: txHash, from } = event.transaction;
-  
-  const withdrawalId = `${user.toLowerCase()}-pending`;
-  
-  // Update or create managed withdrawal record
-  await db.managedWithdrawals.upsert({
-    id: withdrawalId,
-    update: {
-      approvedShares: shares,
-      status: "approved",
-      approvalTimestamp: timestamp,
-      approvalTxHash: txHash,
-    },
-    create: {
-      user: user.toLowerCase(),
-      requestedShares: shares,
-      approvedShares: shares,
-      status: "approved",
-      requestTimestamp: timestamp,
-      approvalTimestamp: timestamp,
-      completionTimestamp: null,
-      requestTxHash: txHash,
-      approvalTxHash: txHash,
-      completionTxHash: null,
-    },
-  });
-});
+// Note: WithdrawalApproved event doesn't exist in current ABI
+// Managed withdrawals are tracked through other events in the new architecture
 
 // Create periodic snapshots on major events
-async function createVaultSnapshot(context: any, blockNumber: bigint, timestamp: bigint) {
+export async function createVaultSnapshot(context: any, blockNumber: bigint, timestamp: bigint) {
   const { db, client } = context;
   
   // Only create snapshots every 100 blocks to avoid too many records
@@ -182,11 +152,5 @@ async function createVaultSnapshot(context: any, blockNumber: bigint, timestamp:
   }
 }
 
-// Call snapshot creation on major events
-ponder.on("BtcVaultToken:Deposit", async ({ event, context }) => {
-  await createVaultSnapshot(context, event.block.number, event.block.timestamp);
-});
-
-ponder.on("BtcVaultToken:Withdraw", async ({ event, context }) => {
-  await createVaultSnapshot(context, event.block.number, event.block.timestamp);
-});
+// Note: Snapshot creation is called from BtcVaultToken event handlers
+// to avoid duplicate event handler registration

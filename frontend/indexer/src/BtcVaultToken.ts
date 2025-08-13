@@ -48,6 +48,8 @@ ponder.on("BtcVaultToken:Deposit", async ({ event, context }) => {
     },
   });
   
+  // Vault snapshot will be created periodically by BtcVaultStrategy handlers
+  
   // Update daily metrics
   const dateStr = getDateString(timestamp);
   await db.dailyMetrics.upsert({
@@ -111,6 +113,8 @@ ponder.on("BtcVaultToken:Withdraw", async ({ event, context }) => {
       txHash,
     },
   });
+  
+  // Vault snapshot will be created periodically by BtcVaultStrategy handlers
   
   // Update managed withdrawal if exists
   const withdrawalId = `${owner.toLowerCase()}-${timestamp}`;
