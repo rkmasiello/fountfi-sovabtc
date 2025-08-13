@@ -1,0 +1,13 @@
+# Railway configuration for Scheduler service
+# This file configures the service when deployed from /frontend
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.scheduler"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+port = 3001
