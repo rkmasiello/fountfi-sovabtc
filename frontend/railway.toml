@@ -1,0 +1,26 @@
+# Railway configuration for SovaBTC backend services
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci"
+
+[deploy]
+numReplicas = 1
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "scheduler"
+build.dockerfilePath = "Dockerfile.scheduler"
+deploy.startCommand = "node services/scheduler/dist/index.js"
+deploy.healthcheckPath = "/health"
+deploy.port = 3001
+
+[[services]]
+name = "indexer" 
+build.dockerfilePath = "Dockerfile.indexer"
+deploy.startCommand = "npm start"
+deploy.healthcheckPath = "/health"
+deploy.port = 42069

@@ -5,6 +5,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { formatUnits, parseUnits } from 'viem';
 import { CONTRACTS } from '@/lib/contracts';
 import { BTC_VAULT_TOKEN_ABI, BTC_VAULT_STRATEGY_ABI, ERC20_ABI } from '@/lib/abis';
+import { CollateralManager } from './admin/CollateralManager';
 
 // Role Manager ABI for admin check
 const ROLE_MANAGER_ABI = [
@@ -243,56 +244,7 @@ export function AdminPanel({ className = '' }: AdminPanelProps) {
 
       <div className="mt-6">
         {activeTab === 'collateral' && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Collateral Management</h3>
-            
-            <div className="border rounded-lg p-4">
-              <h4 className="font-medium mb-3">Add New Collateral</h4>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Token address (0x...)"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={newCollateralAddress}
-                  onChange={(e) => setNewCollateralAddress(e.target.value)}
-                />
-                <input
-                  type="number"
-                  placeholder="Decimals (default: 8)"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={newCollateralDecimals}
-                  onChange={(e) => setNewCollateralDecimals(e.target.value)}
-                />
-                <button
-                  onClick={handleAddCollateral}
-                  disabled={!newCollateralAddress || isConfirming}
-                  className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400"
-                >
-                  {isConfirming ? 'Adding...' : 'Add Collateral'}
-                </button>
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-4">
-              <h4 className="font-medium mb-3">Remove Collateral</h4>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Token address to remove (0x...)"
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={removeCollateralAddress}
-                  onChange={(e) => setRemoveCollateralAddress(e.target.value)}
-                />
-                <button
-                  onClick={handleRemoveCollateral}
-                  disabled={!removeCollateralAddress || isConfirming}
-                  className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:bg-gray-400"
-                >
-                  {isConfirming ? 'Removing...' : 'Remove Collateral'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <CollateralManager />
         )}
 
         {activeTab === 'liquidity' && (

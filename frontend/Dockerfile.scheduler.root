@@ -1,0 +1,64 @@
+# Scheduler Dockerfile (for deployment from repo root)
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files from frontend
+COPY frontend/package*.json ./
+COPY frontend/prisma ./prisma/
+
+# Install dependencies
+RUN npm ci
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy scheduler source
+COPY frontend/services/scheduler ./services/scheduler
+COPY frontend/lib/services/blockchainService.ts ./lib/services/
+COPY frontend/lib/abis.ts ./lib/
+
+# Build TypeScript
+WORKDIR /app/services/scheduler
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Copy package files
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/prisma ./prisma/
+
+# Install production dependencies only
+RUN npm ci --omit=dev && \
+    npx prisma generate && \
+    npm cache clean --force
+
+# Copy built application
+COPY --from=builder /app/services/scheduler/dist ./services/scheduler/dist
+COPY --from=builder /app/lib ./lib
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+USER nodejs
+
+# Expose health check port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the scheduler
+CMD ["node", "services/scheduler/dist/index.js"]

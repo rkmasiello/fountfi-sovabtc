@@ -1,22 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { CONTRACTS } from '@/lib/contracts';
 import { BTC_VAULT_TOKEN_ABI, BTC_VAULT_STRATEGY_ABI, ERC20_ABI } from '@/lib/abis';
+import { useActiveCollaterals } from '@/hooks/useCollaterals';
 
-const COLLATERAL_TOKENS = [
-  { symbol: 'WBTC', address: CONTRACTS.wbtc, decimals: 8 },
-  { symbol: 'TBTC', address: CONTRACTS.tbtc, decimals: 8 },
-  { symbol: 'sovaBTC', address: CONTRACTS.sovaBTC, decimals: 8 },
+// Fallback collaterals for when database is unavailable
+const FALLBACK_COLLATERALS = [
+  { symbol: 'WBTC', address: CONTRACTS.wbtc, decimals: 8, name: 'Wrapped Bitcoin' },
+  { symbol: 'TBTC', address: CONTRACTS.tbtc, decimals: 8, name: 'tBTC' },
+  { symbol: 'sovaBTC', address: CONTRACTS.sovaBTC, decimals: 8, name: 'Sova Bitcoin' },
 ];
 
 export function DepositForm() {
-  const { address } = useAccount();
-  const [selectedToken, setSelectedToken] = useState(COLLATERAL_TOKENS[0]);
+  const { address, chain } = useAccount();
+  const { data: collaterals, isLoading: collateralsLoading } = useActiveCollaterals();
+  
+  // Use dynamic collaterals from database, fallback to hardcoded if unavailable
+  const availableCollaterals = collaterals && collaterals.length > 0 
+    ? collaterals.map(c => ({
+        symbol: c.symbol,
+        address: c.address,
+        decimals: c.decimals,
+        name: c.name,
+        logoUri: c.logoUri,
+      }))
+    : FALLBACK_COLLATERALS;
+
+  const [selectedToken, setSelectedToken] = useState(availableCollaterals[0]);
   const [amount, setAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
+  
+  // Update selected token when collaterals load or chain changes
+  useEffect(() => {
+    if (availableCollaterals.length > 0 && !availableCollaterals.find(t => t.address === selectedToken?.address)) {
+      setSelectedToken(availableCollaterals[0]);
+    }
+  }, [availableCollaterals, selectedToken?.address]);
 
   const { writeContract: approve, data: approveHash } = useWriteContract();
   const { writeContract: deposit, data: depositHash } = useWriteContract();
@@ -115,21 +137,30 @@ export function DepositForm() {
           </label>
           <select
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedToken.address}
+            value={selectedToken?.address || ''}
             onChange={(e) => {
-              const token = COLLATERAL_TOKENS.find(t => t.address === e.target.value);
+              const token = availableCollaterals.find(t => t.address === e.target.value);
               if (token) setSelectedToken(token);
             }}
+            disabled={collateralsLoading}
           >
-            {COLLATERAL_TOKENS.map((token) => (
+            {collateralsLoading && (
+              <option value="">Loading collaterals...</option>
+            )}
+            {!collateralsLoading && availableCollaterals.map((token) => (
               <option key={token.address} value={token.address}>
-                {token.symbol}
+                {token.symbol} - {token.name}
               </option>
             ))}
           </select>
           <p className="text-sm text-gray-500 mt-1">
-            Balance: {balance.toFixed(6)} {selectedToken.symbol}
+            Balance: {balance.toFixed(6)} {selectedToken?.symbol || ''}
           </p>
+          {chain && !collateralsLoading && availableCollaterals.length === 0 && (
+            <p className="text-sm text-yellow-600 mt-1">
+              No collaterals available for {chain.name}. Using fallback list.
+            </p>
+          )}
         </div>
 
         <div>
